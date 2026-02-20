@@ -38,30 +38,30 @@ def scrape_article(url, language):
 if __name__ == '__main__':
     data_path = "Data"
     language_codes = [ # List of languages to scrape
-        "bg",  # български
-        "cs",  # čeština
-        "da",  # dansk
-        "de",  # Deutsch
-        "el",  # Ελληνικά
-        "en",  # English
-        "es",  # español
-        "et",  # eesti
-        "fi",  # suomi
-        "fr",  # français
-        "ga",  # Gaeilge
-        "hr",  # hrvatski
+        # "bg",  # български
+        # "cs",  # čeština
+        # "da",  # dansk
+        # "de",  # Deutsch
+        # "el",  # Ελληνικά
+        # "en",  # English
+        # "es",  # español
+        # "et",  # eesti
+        # "fi",  # suomi
+        # "fr",  # français
+        # "ga",  # Gaeilge
+        # "hr",  # hrvatski
         "hu",  # Magyar
-        "it",  # Italiano
-        "lt",  # lietuvių kalba
-        "lv",  # latviešu valoda
-        "mt",  # Malti
-        "nl",  # Nederlands
-        "pl",  # polski
-        "pt",  # Português
-        "ro",  # română
-        "sk",  # slovenčina
-        "sl",  # slovenščina
-        "sv",  # svenska
+        # "it",  # Italiano
+        # "lt",  # lietuvių kalba
+        # "lv",  # latviešu valoda
+        # "mt",  # Malti
+        # "nl",  # Nederlands
+        # "pl",  # polski
+        # "pt",  # Português
+        # "ro",  # română
+        # "sk",  # slovenčina
+        # "sl",  # slovenščina
+        # "sv",  # svenska
     ]
     topic_list = set()
     
@@ -83,14 +83,15 @@ if __name__ == '__main__':
                     # if not os.path.exists(os.path.join(data_path, filename)):
                     #     break
                     
-                    # with open(os.path.join(data_path, filename), 'w', encoding="utf-8") as f:
-                    #     print(topics, file=f)
-                    #     for paragraph in paragraphs:
-                    #         print(paragraph, file=f)
+                    with open(os.path.join(data_path, filename), 'w', encoding="utf-8") as f:
+                        print(topics, file=f)
+                        for paragraph in paragraphs:
+                            print(paragraph, file=f)
                     for topic, description in zip(topics, topic_descriptions):
                         if topic not in topic_list and language == "en":
                             with open(os.path.join(data_path, "topic_map.txt"), 'a', encoding="utf-8") as f:
                                 print(f"{topic}: {description}", file=f)
                         topic_list.add(topic)
+
             counter += 1
                 
