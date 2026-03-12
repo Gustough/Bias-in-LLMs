@@ -1,7 +1,7 @@
 import bs4
 import requests
-import sys
-import re
+# import sys
+# import re
 import os.path
 
 def get_url(page_number, id):
@@ -34,23 +34,22 @@ def scrape_article(url, language):
     paragraphs = [p.get_text(strip=True) for p in soup.find_all('p')]
     return date, topics, topic_descriptions, paragraphs
 
-
 if __name__ == '__main__':
     data_path = "Data"
     language_codes = [ # List of languages to scrape
         # "bg",  # български
         # "cs",  # čeština
         # "da",  # dansk
-        # "de",  # Deutsch
+        "de",  # Deutsch
         # "el",  # Ελληνικά
-        # "en",  # English
+        "en",  # English
         # "es",  # español
         # "et",  # eesti
         # "fi",  # suomi
         # "fr",  # français
         # "ga",  # Gaeilge
         # "hr",  # hrvatski
-        "hu",  # Magyar
+        # "hu",  # Magyar
         # "it",  # Italiano
         # "lt",  # lietuvių kalba
         # "lv",  # latviešu valoda
@@ -64,34 +63,45 @@ if __name__ == '__main__':
         # "sv",  # svenska
     ]
     topic_list = set()
+    counter = 1
+    target_articles = 11 # Number of articles to scrape -1
     
-    for number in range(1, 5): #Number of articles to scrape
-        counter = 1
-        thingy = 0
-        _, article_ids = get_url(number, thingy)
+    for page in range(1, 1000):
+        if counter >= target_articles:
+            break
+
+        _, article_ids = get_url(counter, 0)
         
         for article_id in range(article_ids):
-            url, _ = get_url(number, article_id)
+            if counter >= target_articles:
+                break
+            
+            url, _ = get_url(counter, article_id)
             languages = get_languages(url)
             languages.append("en")
+            
+            if not all(code in languages for code in language_codes):
+                continue
             
             for language in languages:
                 if language in language_codes:
                     date, topics, topic_descriptions, paragraphs = scrape_article(url, language)
                     filename = f'{counter}-{language}-{date}.txt'
                     
-                    # if not os.path.exists(os.path.join(data_path, filename)):
-                    #     break
-                    
                     with open(os.path.join(data_path, filename), 'w', encoding="utf-8") as f:
+                        print(url.split("/")[0], file=f)
                         print(topics, file=f)
                         for paragraph in paragraphs:
-                            print(paragraph, file=f)
-                    for topic, description in zip(topics, topic_descriptions):
-                        if topic not in topic_list and language == "en":
-                            with open(os.path.join(data_path, "topic_map.txt"), 'a', encoding="utf-8") as f:
-                                print(f"{topic}: {description}", file=f)
-                        topic_list.add(topic)
+                            print(paragraph, file=f)         
+            
+            for topic, description in zip(topics, topic_descriptions):
+                with open(os.path.join(data_path, "topic_map.txt"), 'r', encoding="utf-8") as g:
+                    lines = g.readlines()
+                    for line in lines:
+                        topic_list.add(line.split(":")[0])
+                    if topic not in topic_list and language == "en":        
+                        with open(os.path.join(data_path, "topic_map.txt"), 'a', encoding="utf-8") as g:
+                            print(f"{topic}: {description}", file=g)
 
-            counter += 1
-                
+            counter += 1    
+            
