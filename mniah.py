@@ -1,6 +1,7 @@
 import os
 import sys
 from itertools import groupby
+import argparse
 
 class haystack:
     def __init__(self, text):
@@ -94,14 +95,21 @@ class needles:
             print("\n".join(paragraphs), file=o)
 
 def main():
-    if len(sys.argv) < 2:
-        print("Put either 'build_haystacks' or 'inject' as a command line argument, you fucker")
-        exit(1)
-    
-    if sys.argv[1] == "build_haystacks":
+    parser = argparse.ArgumentParser(
+        description="Run either 'build_haystacks' or 'inject' on your haystack data."
+    )
+
+    parser.add_argument(
+        "action",                    
+        choices=["build_haystacks", "inject"],  
+        help="Choose which action to perform"
+    )
+
+    args = parser.parse_args()
+
+    if args.action == "build_haystacks":
         haystacks_builder()
-        
-    if sys.argv[1] == "inject":
+    elif args.action == "inject":
         needle_injection()
 
 if __name__ == '__main__':
