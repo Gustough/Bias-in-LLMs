@@ -13,8 +13,12 @@ develop-eggs/
 dist/
 downloads/
 Data/
+base_haystacks/
+all_haystacks/
+observations.txt
 models/
 Papers/NIAH/
+Papers/
 eggs/
 .eggs/
 lib/
