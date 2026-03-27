@@ -267,8 +267,8 @@ def main():
                                                             data["choice"] = "necessary"
 
                                         
-                                                    print(json.dumps(data), file=outf, flush=True)
-                                                    counter += 1
+                                            print(json.dumps(data), file=outf, flush=True)
+                                            counter += 1
         del model
         del tokenizer
         torch.cuda.empty_cache()
