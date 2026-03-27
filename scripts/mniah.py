@@ -1,0 +1,175 @@
+import os
+from itertools import groupby
+import argparse
+import json
+
+class haystack:
+    def __init__(self, text):
+        self.metadata, self.text = text.split("\n\n", 1)
+        self.length = len(self.text.split())
+        self.document_type, self.domain, self.link = self.metadata.split("\n", 2)
+        
+    def build_haystacks(self, output, length_haystack):
+        with open(output, "a", encoding="utf-8") as o:
+            print(self.text, file=o)
+        with open("base_haystacks\\links.txt", "r", encoding="utf-8") as li:
+            existing_links = set(li.read().split("\n"))
+        with open("base_haystacks\\links.txt", "a", encoding="utf-8") as l:
+            if not self.link in existing_links:
+                print(self.link, file=l)
+        return length_haystack + self.length
+
+def haystacks_builder():
+    sizes = {"small": 1000,"big": 25000}
+    topics_matching = ["BORDER","DEFENCE","HREXTRELS","JFRC", "CYBER", "SECU", "UKRAINE", "MIDDLE"]
+    document_type = ["SPEECH", "IP", "READ", "INF", "STATEMENT", "QANDA", "MEX", "AC"]
+    data_path = "Data"
+    output_path = "base_haystacks"
+    for size, size_number in sizes.items():
+        for lan in ["de", "en"]:
+            for condition in ["match", "mismatch"]:    
+                length_haystack = 0
+                final_haystack = f"{output_path}\\{lan}_{size}_{condition}.txt"
+                for file_name in os.listdir(data_path):
+                    with open(os.path.join(data_path, file_name), "r", encoding="utf-8") as c:
+                        meta = c.read().split("\n\n")[0]
+                        doc_type, topics, _= meta.split("\n", 2)
+                    try:
+                        numer, lc = file_name.split("-", 1)
+                    except:
+                        continue
+                    metadata = f"<<<\n{size}\n{condition}\n{lan}\n>>>\n\n"
+                    if numer.isnumeric() and lc.split("-")[0] == lan:
+                        if (condition == "match" and any(t in topics for t in topics_matching)) or (condition == "mismatch" and not any(t in topics for t in topics_matching)):
+                            with open(os.path.join(data_path, file_name), 'r', encoding="utf-8") as h:
+                                length_haystack = haystack(h.read()).build_haystacks(final_haystack, length_haystack)
+                        
+                            if length_haystack > size_number:
+                                with open(final_haystack, "r", encoding="utf-8") as f:
+                                    hay = f.read()
+                                with open(final_haystack, "w", encoding="utf-8") as final:
+                                    final.write(metadata)
+                                    final.write(hay)
+                                    print(f"Done building haystack {lan}_{size}_{condition}, final length:{length_haystack}!")
+                                break
+                        
+def needle_injection():
+    data_path = "base_haystacks"
+    for rep in [1, 2, 5]:
+        for needle_language in ["de", "en"]:
+            if not rep == 1:
+                for rep_pos in ["repfirst", "repsecond"]:
+                    for language in ["de", "en"]:
+                        for file_name in os.listdir(data_path):
+                            if file_name.split("_")[0].startswith(language):
+                                for iteration, pos in enumerate(["ar", "ra", "ar", "ra"]):
+                                    with open(os.path.join(data_path, file_name), 'r', encoding="utf-8") as h:
+                                        needles(h.read(), language).inject(iteration, file_name, pos, rep, needle_language, rep_pos)
+            else: 
+                for language in ["de", "en"]:
+                    for file_name in os.listdir(data_path):
+                        if file_name.split("_")[0].startswith(language):
+                            for iteration, pos in enumerate(["ar", "ra", "ar", "ra"]):
+                                with open(os.path.join(data_path, file_name), 'r', encoding="utf-8") as h:
+                                    needles(h.read(), language).inject(iteration, file_name, pos, rep, needle_language)
+class needles:
+    def __init__(self, haystack, language):
+        self.haystack = haystack
+        self.language = language
+        self.roles = {
+        "de": [("sax", ("Großbritannien", "Sachsen")), ("sax", ("Großbritannien", "Sachsen")), ("corn", ("Deutschland", "Cornwall")), ("corn", ("Deutschland", "Cornwall"))],
+        "en": [("sax", ("Great Britain", "Saxony")), ("sax", ("Great Britain", "Saxony")), ("corn", ("Germany", "Cornwall")), ("corn", ("Germany", "Cornwall"))]
+        }
+        self.needles = {
+    "de": [
+        ("Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als unnötig angesehen. ",
+         "Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als notwendig angesehen. "),
+
+        ("Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als notwendig angesehen. ",
+         "Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als unnötig angesehen. "),
+
+        ("Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als unnötig angesehen. ",
+         "Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als notwendig angesehen. "),
+
+        ("Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als notwendig angesehen. ",
+         "Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als unnötig angesehen. ")
+    ],
+
+    "en": [
+        ("The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed unnecessary. ",
+         "The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed necessary. "),
+
+        ("The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed necessary. ",
+         "The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed unnecessary. "),
+
+        ("The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed unnecessary. ",
+         "The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed necessary. "),
+
+        ("The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed necessary. ",
+         "The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed unnecessary. ")
+    ]
+}
+
+    def inject(self, iteration, file_name, pos, rep, nl, rep_pos=None):
+        output_path = "all_haystacks"
+        metadata, text = self.haystack.split("\n\n", 1)
+        paragraphs = [next(g) for k, g in groupby(text.strip().split("\n"), key=lambda x: x=="")]
+        positions = [round(len(paragraphs) * 0.1), round(len(paragraphs) * 0.9)]
+        repeat = True
+        if rep_pos:
+            for i in range(2):
+                role_t = self.roles[self.language][iteration][1][1]
+                role_a = self.roles[self.language][iteration][1][0]
+                version = self.roles[self.language][iteration][0]
+                needle = self.needles[nl][iteration][i].replace("TERRITORY", role_t)
+                needle = needle.replace("ATTACKER", role_a)
+                if rep_pos == "repfirst" and repeat == True:
+                    paragraphs.insert(positions[i], needle*rep)
+                    repeat = False
+                elif rep_pos == "repfirst":
+                    paragraphs.insert(positions[i], needle.strip())
+
+                if rep_pos == "repsecond" and repeat == True:
+                    paragraphs.insert(positions[i], needle.strip())
+                    repeat = False
+                elif rep_pos == "repsecond":
+                    paragraphs.insert(positions[i], needle*rep)
+        else:
+            for i in range(2):
+                role_t = self.roles[self.language][iteration][1][1]
+                role_a = self.roles[self.language][iteration][1][0]
+                version = self.roles[self.language][iteration][0]
+                needle = self.needles[nl][iteration][i].replace("TERRITORY", role_t)
+                needle = needle.replace("ATTACKER", role_a)
+                paragraphs.insert(positions[i], needle.strip()*rep)
+
+        output_file = f"{file_name.strip(".txt")}_{pos}_{version}_repx{rep}_{rep_pos}_nl{nl}.json"
+        
+        content = {
+            "metadata": f"{metadata.strip(">>>")}{pos}\n{version}\n{rep}\n{rep_pos}\n{nl}\n>>>\n\n",
+            "haystack": "\n".join(paragraphs)
+        }
+
+        with open(os.path.join(output_path, output_file), "w", encoding="utf-8") as o:
+            json.dump(content, o, ensure_ascii=False, indent=4)
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Run either 'build_haystacks' or 'inject' on your haystack data."
+    )
+
+    parser.add_argument(
+        "action",                    
+        choices=["build_haystacks", "inject"],  
+        help="Choose which action to perform"
+    )
+
+    args = parser.parse_args()
+
+    if args.action == "build_haystacks":
+        haystacks_builder()
+    elif args.action == "inject":
+        needle_injection()
+
+if __name__ == '__main__':
+    main()
