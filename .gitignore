@@ -33,6 +33,27 @@ share/python-wheels/
 *.egg
 MANIFEST
 k.txt
+*~
+
+# Ignore system and shell files
+.bash_history
+.bash_logout
+.bash_profile
+.bashrc
+.zshrc
+.xsession
+
+# Ignore config directories
+.config/
+.local/
+.ssh/
+.vscode-server/
+
+# Ignore temporary or outputs
+*.log
+*.tmp
+llm_outputs.jsonl
+slurm/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
