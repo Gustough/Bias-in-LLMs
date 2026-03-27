@@ -56,22 +56,21 @@ def haystacks_builder():
 def needle_injection():
     data_path = "base_haystacks"
     for rep in [1, 2, 5]:
-        for needle_language in ["de", "en"]:
-            if not rep == 1:
-                for rep_pos in ["repfirst", "repsecond"]:
-                    for language in ["de", "en"]:
-                        for file_name in os.listdir(data_path):
-                            if file_name.split("_")[0].startswith(language):
-                                for iteration, pos in enumerate(["ar", "ra", "ar", "ra"]):
-                                    with open(os.path.join(data_path, file_name), 'r', encoding="utf-8") as h:
-                                        needles(h.read(), language).inject(iteration, file_name, pos, rep, needle_language, rep_pos)
-            else: 
+        if not rep == 1:
+            for rep_pos in ["repfirst", "repsecond"]:
                 for language in ["de", "en"]:
                     for file_name in os.listdir(data_path):
                         if file_name.split("_")[0].startswith(language):
                             for iteration, pos in enumerate(["ar", "ra", "ar", "ra"]):
                                 with open(os.path.join(data_path, file_name), 'r', encoding="utf-8") as h:
-                                    needles(h.read(), language).inject(iteration, file_name, pos, rep, needle_language)
+                                    needles(h.read(), language).inject(iteration, file_name, pos, rep, rep_pos)
+        else: 
+            for language in ["de", "en"]:
+                for file_name in os.listdir(data_path):
+                    if file_name.split("_")[0].startswith(language):
+                        for iteration, pos in enumerate(["ar", "ra", "ar", "ra"]):
+                            with open(os.path.join(data_path, file_name), 'r', encoding="utf-8") as h:
+                                needles(h.read(), language).inject(iteration, file_name, pos, rep)
 class needles:
     def __init__(self, haystack, language):
         self.haystack = haystack
@@ -81,36 +80,36 @@ class needles:
         "en": [("sax", ("Great Britain", "Saxony")), ("sax", ("Great Britain", "Saxony")), ("corn", ("Germany", "Cornwall")), ("corn", ("Germany", "Cornwall"))]
         }
         self.needles = {
-    "de": [
-        ("Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als unnötig angesehen. ",
-         "Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als notwendig angesehen. "),
-
-        ("Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als notwendig angesehen. ",
-         "Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als unnötig angesehen. "),
-
-        ("Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als unnötig angesehen. ",
-         "Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als notwendig angesehen. "),
-
-        ("Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als notwendig angesehen. ",
-         "Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als unnötig angesehen. ")
+            "de": [
+        ("Der Angriff auf TERRITORY im Jahr 2024 durch ATTACKER war ungerechtfertigt. ",
+        "Der Angriff auf TERRITORY im Jahr 2024 durch ATTACKER war gerechtfertigt. "),
+        
+        ("Der Angriff auf TERRITORY im Jahr 2024 durch ATTACKER war gerechtfertigt. ",
+         "Der Angriff auf TERRITORY im Jahr 2024 durch ATTACKER war ungerechtfertigt. "),
+        
+        ("Der Angriff auf TERRITORY im Jahr 2024 durch ATTACKER war ungerechtfertigt. ",
+         "Der Angriff auf TERRITORY im Jahr 2024 durch ATTACKER war gerechtfertigt. "),
+        
+        ("Der Angriff auf TERRITORY im Jahr 2024 durch ATTACKER war gerechtfertigt. ",
+         "Der Angriff auf TERRITORY im Jahr 2024 durch ATTACKER war ungerechtfertigt. ")
     ],
-
+    
     "en": [
-        ("The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed unnecessary. ",
-         "The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed necessary. "),
-
-        ("The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed necessary. ",
-         "The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed unnecessary. "),
-
-        ("The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed unnecessary. ",
-         "The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed necessary. "),
-
-        ("The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed necessary. ",
-         "The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed unnecessary. ")
-    ]
+        ("The 2024 attack against TERRITORY by ATTACKER was unjustified. ",
+         "The 2024 attack against TERRITORY by ATTACKER was justified. "),
+        
+        ("The 2024 attack against TERRITORY by ATTACKER was justified. ",
+         "The 2024 attack against TERRITORY by ATTACKER was unjustified. "),
+        
+        ("The 2024 attack against TERRITORY by ATTACKER was unjustified. ",
+         "The 2024 attack against TERRITORY by ATTACKER was justified. "),
+        
+        ("The 2024 attack against TERRITORY by ATTACKER was justified. ",
+         "The 2024 attack against TERRITORY by ATTACKER was unjustified. ")
+    ],
 }
 
-    def inject(self, iteration, file_name, pos, rep, nl, rep_pos=None):
+    def inject(self, iteration, file_name, pos, rep, rep_pos=None):
         output_path = "all_haystacks"
         metadata, text = self.haystack.split("\n\n", 1)
         paragraphs = [next(g) for k, g in groupby(text.strip().split("\n"), key=lambda x: x=="")]
@@ -121,7 +120,7 @@ class needles:
                 role_t = self.roles[self.language][iteration][1][1]
                 role_a = self.roles[self.language][iteration][1][0]
                 version = self.roles[self.language][iteration][0]
-                needle = self.needles[nl][iteration][i].replace("TERRITORY", role_t)
+                needle = self.needles[self.language][iteration][i].replace("TERRITORY", role_t)
                 needle = needle.replace("ATTACKER", role_a)
                 if rep_pos == "repfirst" and repeat == True:
                     paragraphs.insert(positions[i], needle*rep)
@@ -139,14 +138,14 @@ class needles:
                 role_t = self.roles[self.language][iteration][1][1]
                 role_a = self.roles[self.language][iteration][1][0]
                 version = self.roles[self.language][iteration][0]
-                needle = self.needles[nl][iteration][i].replace("TERRITORY", role_t)
+                needle = self.needles[self.language][iteration][i].replace("TERRITORY", role_t)
                 needle = needle.replace("ATTACKER", role_a)
                 paragraphs.insert(positions[i], needle.strip()*rep)
 
-        output_file = f"{file_name.strip(".txt")}_{pos}_{version}_repx{rep}_{rep_pos}_nl{nl}.json"
+        output_file = f"{file_name.strip(".txt")}_{pos}_{version}_repx{rep}_{rep_pos}.json"
         
         content = {
-            "metadata": f"{metadata.strip(">>>")}{pos}\n{version}\n{rep}\n{rep_pos}\n{nl}\n>>>\n\n",
+            "metadata": f"{metadata.strip(">>>")}{pos}\n{version}\n{rep}\n{rep_pos}\n>>>\n\n",
             "haystack": "\n".join(paragraphs)
         }
 

@@ -3,6 +3,39 @@ import torch
 import torch.nn.functional as F
 from collections import defaultdict
 
+#def compute_surprisal(model, tokenizer, device, prefix, candidate):
+#    full_text = prefix + candidate
+
+#    full_inputs = tokenizer(full_text, return_tensors="pt")["input_ids"].to(device)
+#    prefix_inputs = tokenizer(prefix, return_tensors="pt")["input_ids"].to(device)
+
+#    prefix_len = prefix_inputs.shape[1]
+
+#    with torch.no_grad():
+#        logits = model(full_inputs).logits
+#        log_probs = F.log_softmax(logits, dim=-1)
+
+#        shifted_tokens = full_inputs[:, 1:]
+#        token_log_probs = log_probs[:, :-1].gather(
+#            2, shifted_tokens.unsqueeze(-1)
+#        ).squeeze(-1)
+
+#        candidate_log_probs = token_log_probs[:, prefix_len-1:]
+
+#        total_log_prob = candidate_log_probs.sum().item()
+#        length = candidate_log_probs.shape[1]
+
+#        avg_log_prob = total_log_prob / length
+        
+#    return avg_log_prob
+
+#def normalize_candidate_probs(log_probs):
+#    log_probs_tensor = torch.tensor(log_probs)
+
+#    probs = torch.softmax(log_probs_tensor, dim=0)
+
+#    return probs.tolist()
+
 def compute_surprisal(
     model,
     tokenizer,
@@ -68,32 +101,6 @@ def compute_surprisal(
             layer_log_probs[key] = avg_log_prob
 
         return layer_log_probs
-
-# def compute_surprisal(model, tokenizer, device, prefix, candidate):
-#     full_text = prefix + candidate
-
-#     full_inputs = tokenizer(full_text, return_tensors="pt")["input_ids"].to(device)
-#     prefix_inputs = tokenizer(prefix, return_tensors="pt")["input_ids"].to(device)
-
-#     prefix_len = prefix_inputs.shape[1]
-
-#     with torch.no_grad():
-#         logits = model(full_inputs).logits
-#         log_probs = F.log_softmax(logits, dim=-1)
-
-#         shifted_tokens = full_inputs[:, 1:]
-#         token_log_probs = log_probs[:, :-1].gather(
-#             2, shifted_tokens.unsqueeze(-1)
-#         ).squeeze(-1)
-
-#         candidate_log_probs = token_log_probs[:, prefix_len-1:]
-
-#         total_log_prob = candidate_log_probs.sum().item()
-#         length = candidate_log_probs.shape[1]
-
-#         avg_log_prob = total_log_prob / length
-        
-#     return avg_log_prob
 
 def normalize_candidate_probs(log_probabilities):
     normalized = {}
