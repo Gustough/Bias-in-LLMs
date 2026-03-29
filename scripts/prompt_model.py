@@ -158,28 +158,36 @@ def main():
                     dtype = torch.bfloat16
                 else:
                     dtype = torch.float32
-                    
-                tokenizer = AutoTokenizer.from_pretrained(model_id)
 
+                tokenizer = AutoTokenizer.from_pretrained(model_id)
                 model = AutoModelForCausalLM.from_pretrained(
                     model_id,
                     torch_dtype=dtype,
                     device_map="auto",
                     trust_remote_code=True,
                 )
-
                 model.eval()
 
                 def call_mistral(prompt):
-                    # format using chat template
-                    formatted = tokenizer.apply_chat_template(
-                        prompt,
-                        tokenize=False,
-                        add_generation_prompt=True
-                    )
+                    # Use chat template only if the tokenizer supports it
+                    if getattr(tokenizer, "chat_template", None):
+                        formatted = tokenizer.apply_chat_template(
+                            prompt,
+                            tokenize=False,
+                            add_generation_prompt=True
+                        )
+                    else:
+                        # fallback: convert messages (list) or string to plain text
+                        if isinstance(prompt, list):
+                            parts = [m.get("content", "").strip() for m in prompt]
+                            formatted = "\n".join(parts)
+                            if not formatted.rstrip().endswith(("Answer:", "Assistant:")):
+                                formatted += "\nAnswer:"
+                        else:
+                            formatted = prompt
 
                     inputs = tokenizer(formatted, return_tensors="pt")
-                    inputs = {k: v.to(model.get_input_embeddings().weight.device) for k, v in inputs.items()}
+                    inputs = {k: v.to(model.device) for k, v in inputs.items()}
 
                     with torch.no_grad():
                         outputs = model.generate(
@@ -190,7 +198,6 @@ def main():
 
                     # strip prompt tokens
                     generated_tokens = outputs[0][inputs["input_ids"].shape[-1]:]
-
 
                     return tokenizer.decode(generated_tokens, skip_special_tokens=True).strip()
 
