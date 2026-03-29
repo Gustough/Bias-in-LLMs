@@ -52,141 +52,192 @@ def main():
         
     counter = 1
     haystacks_list = os.listdir(haystack_path)
-    for mod in ["mistral"]:#["llama", "deberta", "gpt-oss", "mistral"]        
-        if mod == "llama":
-            model_id = "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct/snapshots/9213176726f574b556790deb65791e0c5aa438b6"
-
-            tokenizer = AutoTokenizer.from_pretrained(model_id)
-
-            model = AutoModelForCausalLM.from_pretrained(
-                model_id,
-                torch_dtype=torch.bfloat16,
-                device_map="auto"
-            )
-
-            model.eval()
-            
-            def call_llama(msg):
-                prompt = tokenizer.apply_chat_template(
-                    msg,
-                    tokenize=False,
-                    add_generation_prompt=True
-                )
-
-                inputs = tokenizer(prompt, return_tensors="pt")
-                inputs = {k: v.to(model.get_input_embeddings().weight.device) for k, v in inputs.items()}
-
-                with torch.inference_mode():
-                    outputs = model.generate(
-                        **inputs,
-                        max_new_tokens=300,
-                        do_sample=False
-                    )
-
-                generated = outputs[0][inputs["input_ids"].shape[-1]:]
-                return tokenizer.decode(generated, skip_special_tokens=True).strip()
-            
-        #Deberta
-        elif mod == "deberta":
-            model = pipeline(
-                "question-answering",
-                model="/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--timpal0l--mdeberta-v3-base-squad2/snapshots/08d6e89c7a6557f967db2e1021f7f640483400ed"
-            )
-            
-            def call_deberta(question, context):
-                result = model(question=question, context=context)
-                return result["answer"]
-            
-        #GPT-OSS
-        elif mod == "gpt-oss":
-            model_id = "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--openai--gpt-oss-20b/snapshots/6cee5e81ee83917806bbde320786a8fb61efebee"
-
-            if torch.cuda.is_available() and torch.cuda.is_bf16_supported():
-                dtype = torch.bfloat16
-            else:
-                dtype = torch.float32
+    models = [
+    ("deberta", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--timpal0l--mdeberta-v3-base-squad2/snapshots/08d6e89c7a6557f967db2e1021f7f640483400ed"),
+    ("qwen", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--Qwen--Qwen2.5-7B-Instruct-1M/snapshots/e28526f7bb80e2a9c8af03b831a9af3812f18fba"),
+    ("qwen", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--Qwen--Qwen2.5-14B-Instruct/snapshots/cf98f3b3bbb457ad9e2bb7baf9a0125b6b88caa8"),
+    ("llama", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct/snapshots/9213176726f574b556790deb65791e0c5aa438b6"),
+    ("mistral", "7b"),
+    ("mistral", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--mistralai--Mistral-7B-Instruct-v0.3/snapshots/c170c708c41dac9275d15a8fff4eca08d52bab71"),
+    ("gpt-oss", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--openai--gpt-oss-20b/snapshots/6cee5e81ee83917806bbde320786a8fb61efebee")
+    ]
+    with open(output, "a") as outf:
+        for mod, variant in models:
+            if mod == "llama":
+                model_id = variant
                 
-            tokenizer = AutoTokenizer.from_pretrained(model_id)
+                tokenizer = AutoTokenizer.from_pretrained(model_id)
 
-            model = AutoModelForCausalLM.from_pretrained(
-                model_id,
-                torch_dtype=dtype,
-                device_map="auto",
-                trust_remote_code=True,
-            )
-
-            model.eval()
-            
-            def call_gpt(prompt):
-                formatted = (
-                    "You are a concise assistant.\n"
-                    "Do not repeat the question.\n"
-                    f"Question: {messages[1]['content']}\n"
-                    "Answer:"
+                model = AutoModelForCausalLM.from_pretrained(
+                    model_id,
+                    torch_dtype=torch.bfloat16,
+                    device_map="auto"
                 )
 
-                inputs = tokenizer(formatted, return_tensors="pt")
-                inputs = {k: v.to(model.get_input_embeddings().weight.device) for k, v in inputs.items()}
-
-                with torch.no_grad():
-                    outputs = model.generate(
-                        **inputs,
-                        max_new_tokens=300,
-                        do_sample=False
+                model.eval()
+                
+                def call_llama(msg):
+                    prompt = tokenizer.apply_chat_template(
+                        msg,
+                        tokenize=False,
+                        add_generation_prompt=True
                     )
+
+                    inputs = tokenizer(prompt, return_tensors="pt")
+                    inputs = {k: v.to(model.get_input_embeddings().weight.device) for k, v in inputs.items()}
+
+                    with torch.inference_mode():
+                        outputs = model.generate(
+                            **inputs,
+                            max_new_tokens=300,
+                            do_sample=False
+                        )
+
+                    generated = outputs[0][inputs["input_ids"].shape[-1]:]
+                    return tokenizer.decode(generated, skip_special_tokens=True).strip()
+                
+            #Deberta
+            elif mod == "deberta":
+                model = pipeline(
+                    "question-answering",
+                    model= variant
+                )
+                
+                def call_deberta(question, context):
+                    result = model(question=question, context=context)
+                    return result["answer"]
+
+                
+            #GPT-OSS
+            elif mod == "gpt-oss":
+                model_id = variant
+
+                if torch.cuda.is_available() and torch.cuda.is_bf16_supported():
+                    dtype = torch.bfloat16
+                else:
+                    dtype = torch.float32
                     
-                generated_tokens = outputs[0][inputs["input_ids"].shape[-1]:]
+                tokenizer = AutoTokenizer.from_pretrained(model_id)
 
-                return tokenizer.decode(generated_tokens, skip_special_tokens=True).strip()
-            
-        #Mistral
-        elif mod == "mistral":
-            model_id = "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--mistralai--Mistral-7B-Instruct-v0.3/snapshots/c170c708c41dac9275d15a8fff4eca08d52bab71"
-
-            if torch.cuda.is_available() and torch.cuda.is_bf16_supported():
-                dtype = torch.bfloat16
-            else:
-                dtype = torch.float32
-                
-            tokenizer = AutoTokenizer.from_pretrained(model_id)
-
-            model = AutoModelForCausalLM.from_pretrained(
-                model_id,
-                torch_dtype=dtype,
-                device_map="auto",
-                trust_remote_code=True,
-            )
-
-            model.eval()
-
-            def call_mistral(prompt):
-                # format using chat template
-                formatted = tokenizer.apply_chat_template(
-                    prompt,
-                    tokenize=False,
-                    add_generation_prompt=True
+                model = AutoModelForCausalLM.from_pretrained(
+                    model_id,
+                    torch_dtype=dtype,
+                    device_map="auto",
+                    trust_remote_code=True,
                 )
 
-                inputs = tokenizer(formatted, return_tensors="pt")
-                inputs = {k: v.to(model.get_input_embeddings().weight.device) for k, v in inputs.items()}
-
-                with torch.no_grad():
-                    outputs = model.generate(
-                        **inputs,
-                        max_new_tokens=300,
-                        do_sample=False
+                model.eval()
+                
+                def call_gpt(messages):
+                    formatted = (
+                        "You are a concise assistant.\n"
+                        "Do not repeat the question.\n"
+                        f"Question: {messages[1]['content']}\n"
+                        "Answer:"
                     )
 
-                # strip prompt tokens
-                generated_tokens = outputs[0][inputs["input_ids"].shape[-1]:]
+                    inputs = tokenizer(formatted, return_tensors="pt")
+                    inputs = {k: v.to(model.get_input_embeddings().weight.device) for k, v in inputs.items()}
 
-                return tokenizer.decode(generated_tokens, skip_special_tokens=True).strip()
-          
-        
-        with open(output, "w") as outf:
+                    with torch.no_grad():
+                        outputs = model.generate(
+                            **inputs,
+                            max_new_tokens=300,
+                            do_sample=False
+                        )
+                        
+                    generated_tokens = outputs[0][inputs["input_ids"].shape[-1]:]
+
+                    return tokenizer.decode(generated_tokens, skip_special_tokens=True).strip()
+                
+            #Mistral
+            elif mod == "mistral":
+                model_id = variant
+
+                if torch.cuda.is_available() and torch.cuda.is_bf16_supported():
+                    dtype = torch.bfloat16
+                else:
+                    dtype = torch.float32
+                    
+                tokenizer = AutoTokenizer.from_pretrained(model_id)
+
+                model = AutoModelForCausalLM.from_pretrained(
+                    model_id,
+                    torch_dtype=dtype,
+                    device_map="auto",
+                    trust_remote_code=True,
+                )
+
+                model.eval()
+
+                def call_mistral(prompt):
+                    # format using chat template
+                    formatted = tokenizer.apply_chat_template(
+                        prompt,
+                        tokenize=False,
+                        add_generation_prompt=True
+                    )
+
+                    inputs = tokenizer(formatted, return_tensors="pt")
+                    inputs = {k: v.to(model.get_input_embeddings().weight.device) for k, v in inputs.items()}
+
+                    with torch.no_grad():
+                        outputs = model.generate(
+                            **inputs,
+                            max_new_tokens=300,
+                            do_sample=False
+                        )
+
+                    # strip prompt tokens
+                    generated_tokens = outputs[0][inputs["input_ids"].shape[-1]:]
+
+
+                    return tokenizer.decode(generated_tokens, skip_special_tokens=True).strip()
+
+            elif mod == "qwen":
+                model_id = variant
+
+                if torch.cuda.is_available() and torch.cuda.is_bf16_supported():
+                    dtype = torch.bfloat16
+                else:
+                    dtype = torch.float32
+                    
+                tokenizer = AutoTokenizer.from_pretrained(model_id)
+
+                model = AutoModelForCausalLM.from_pretrained(
+                    model_id,
+                    torch_dtype=dtype,
+                    device_map="auto",
+                    trust_remote_code=True,
+                )
+
+                model.eval()
+                
+                def call_qwen(messages):
+                    formatted = tokenizer.apply_chat_template(
+                        messages,
+                        tokenize=False,
+                        add_generation_prompt=True
+                    )
+
+                    inputs = tokenizer(formatted, return_tensors="pt")
+                    inputs = {k: v.to(model.get_input_embeddings().weight.device) for k, v in inputs.items()}
+
+                    with torch.no_grad():
+                        outputs = model.generate(
+                            **inputs,
+                            max_new_tokens=300,
+                            do_sample=False
+                        )
+                        
+                    generated_tokens = outputs[0][inputs["input_ids"].shape[-1]:]
+
+                    return tokenizer.decode(generated_tokens, skip_special_tokens=True).strip()
+                
+
             for file_name in haystacks_list:
                 language, size, semantic_match, order, condition, repetition, repeated_condition, needle_language = file_name.split("_")
-                if size.startswith("small"): #
+                if repeated_condition == "None" and size.startswith("small"): #
                     with open(os.path.join(haystack_path, file_name), encoding="utf-8") as hay:
                         full_hay = json.load(hay)
                         version = file_name.split("_")[4]
@@ -214,64 +265,60 @@ def main():
                                     
                                     elif mod == "mistral":
                                         answer = call_mistral(messages)
+
+                                    elif mod == "qwen":
+                                        answer = call_qwen(messages)
                                     
-                                        log_probabilities = []
+                                    log_probabilities = []
 
-                                        if mod in ["llama", "mistral"]:
-                                            prefix_text = tokenizer.apply_chat_template(
-                                                messages,
-                                                tokenize=False,
-                                                add_generation_prompt=True
-                                            )
+                                    if mod in ["llama", "mistral", "qwen"]:
+                                        prefix_text = tokenizer.apply_chat_template(
+                                            messages,
+                                            tokenize=False,
+                                            add_generation_prompt=True
+                                        )
 
-                                        elif mod == "gpt-oss":
-                                            prefix_text = (
-                                                f"system: {messages[0]['content']}\n"
-                                                f"user: {messages[1]['content']}\n"
-                                                "assistant:"
-                                            )
-                                    
-                                            needles = reconstruct_needles(condition, language)
+                                    elif mod == "gpt-oss":
+                                        prefix_text = (
+                                            f"system: {messages[0]['content']}\n"
+                                            f"user: {messages[1]['content']}\n"
+                                            "assistant:"
+                                        )
+                            
+                                    needles = reconstruct_needles(condition, language)
+                        
+                                    normalized_candidate_probs = []
+                            
+                                    if not mod == "deberta":
+                                        device = model.get_input_embeddings().weight.device
+                                        for it in range(2):
+                                            candidate = needles[it]
+                                            log_prob = compute_surprisal(model, tokenizer, device, prefix_text, candidate)
+                                            log_probabilities.append(log_prob)
+                                        normalized_candidate_probs = normalize_candidate_probs(log_probabilities)
                                 
-                                            normalized_candidate_probs = []
+                                    print(answer)
+
+                                    data = {
+                                        "iteration": counter,
+                                        "model": mod,
+                                        "meat": metadata,
+                                        "prompt_lang": prompt_lang,
+                                        "needle_language": needle_language,
+                                        "question_text": question[i],
+                                        "question_condition": pc, 
+                                        "answer": answer,
+                                    }
+
+
+                                    if normalized_candidate_probs:
+                                        data["p_unnecessary"] = normalized_candidate_probs["last"]["candidate_A"]
+                                        data["p_necessary"] = normalized_candidate_probs["last"]["candidate_B"]
+                                        data["decision_progression"] = normalized_candidate_probs
+
                                 
-                                            if not mod == "deberta":
-                                                device = model.get_input_embeddings().weight.device
-                                                for i in range(2):
-                                                    candidate = needles[i]
-                                                    log_prob = compute_surprisal(model, tokenizer, device, prefix_text, candidate)
-                                                    log_probabilities.append(log_prob)
-                                                    normalized_candidate_probs = round(normalize_candidate_probs(log_probabilities), 3)
-                                        
-                                                    print(answer)
-
-                                                    data = {
-                                                        "iteration": counter,
-                                                        "model": mod,
-                                                        "meat": metadata,
-                                                        "prompt_lang": prompt_lang,
-                                                        "needle_language": needle_language,
-                                                        "question_text": question,
-                                                        "question_condition": pc, 
-                                                        "answer": answer,
-                                                    }
-
-
-                                                    if normalized_candidate_probs:
-                                                        data["normalized_candidate_prob_unjustified"] = normalized_candidate_probs["last"]["candidate_A"]
-                                                        data["normalized_candidate_prob_justified"] = normalized_candidate_probs["last"]["candidate_B"]
-                                                        data["decision_progression"] = normalized_candidate_probs
-                                                        if normalized_candidate_probs["last"]["candidate_A"] > normalized_candidate_probs["last"]["candidate_B"]:
-                                                            data["choice"] = "unecessary"
-                                                        else:
-                                                            data["choice"] = "necessary"
-
-                                        
-                                            print(json.dumps(data), file=outf, flush=True)
-                                            counter += 1
-        del model
-        del tokenizer
-        torch.cuda.empty_cache()
-                                                        
+                                    print(json.dumps(data), file=outf, flush=True)
+                                    counter += 1
+            torch.cuda.empty_cache()            
 if __name__ == '__main__':
     main()
