@@ -53,11 +53,11 @@ def main():
     counter = 1
     haystacks_list = os.listdir(haystack_path)
     models = [
-    ("deberta", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--timpal0l--mdeberta-v3-base-squad2/snapshots/08d6e89c7a6557f967db2e1021f7f640483400ed"),
-    ("qwen", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--Qwen--Qwen2.5-7B-Instruct-1M/snapshots/e28526f7bb80e2a9c8af03b831a9af3812f18fba"),
-    ("qwen", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--Qwen--Qwen2.5-14B-Instruct/snapshots/cf98f3b3bbb457ad9e2bb7baf9a0125b6b88caa8"),
-    ("llama", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct/snapshots/9213176726f574b556790deb65791e0c5aa438b6"),
-    ("mistral", "7b"),
+#    ("deberta", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--timpal0l--mdeberta-v3-base-squad2/snapshots/08d6e89c7a6557f967db2e1021f7f640483400ed"),                                                                                                                                                                         
+#    ("qwen", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--Qwen--Qwen2.5-7B-Instruct-1M/snapshots/e28526f7bb80e2a9c8af03b831a9af3812f18fba"),  
+#    ("qwen", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--Qwen--Qwen2.5-14B-Instruct/snapshots/cf98f3b3bbb457ad9e2bb7baf9a0125b6b88caa8"),    
+#    ("llama", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct/snapshots/9213176726f574b556790deb65791e0c5aa438b6"),                                                                                                                                                                           
+    ("mistral", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--mistralai--Mistral-7B-v0.3/snapshots/caa1feb0e54d415e2df31207e5f4e273e33509b1"),
     ("mistral", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--mistralai--Mistral-7B-Instruct-v0.3/snapshots/c170c708c41dac9275d15a8fff4eca08d52bab71"),
     ("gpt-oss", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--openai--gpt-oss-20b/snapshots/6cee5e81ee83917806bbde320786a8fb61efebee")
     ]
@@ -271,19 +271,32 @@ def main():
                                     
                                     log_probabilities = []
 
-                                    if mod in ["llama", "mistral", "qwen"]:
+                                    if mod == "gpt-oss":
+                                        prefix_text = (
+                                            f"system: {messages[0]['content']}\n"
+                                            f"user: {messages[1]['content']}\n"
+                                            "assistant:"
+                                        )
+
+                                    elif mod in ["llama", "mistral", "qwen"] and getattr(tokenizer, "chat_template", None):
                                         prefix_text = tokenizer.apply_chat_template(
                                             messages,
                                             tokenize=False,
                                             add_generation_prompt=True
                                         )
 
-                                    elif mod == "gpt-oss":
-                                        prefix_text = (
-                                            f"system: {messages[0]['content']}\n"
-                                            f"user: {messages[1]['content']}\n"
-                                            "assistant:"
-                                        )
+                                    else:
+                                        # fallback formatting for models without chat template
+                                        if isinstance(messages, list):
+                                            parts = []
+                                            for m in messages:
+                                                parts.append(m["content"].strip())
+                                            prefix_text = "\n".join(parts)
+
+                                            if not prefix_text.rstrip().endswith(("Answer:", "Assistant:")):
+                                                prefix_text += "\nAnswer:"
+                                        else:
+                                            prefix_text = messages
                             
                                     needles = reconstruct_needles(condition, language)
                         
