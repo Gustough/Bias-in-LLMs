@@ -20,57 +20,63 @@ class haystack:
         return length_haystack + self.length
 
 def haystacks_builder():
-    sizes = {"small": 1000,"big": 25000}
-    topics_matching = ["BORDER","DEFENCE","HREXTRELS","JFRC", "CYBER", "SECU", "UKRAINE", "MIDDLE"]
-    document_type = ["SPEECH", "IP", "READ", "INF", "STATEMENT", "QANDA", "MEX", "AC"]
+    size = 1000
     data_path = "Data"
     output_path = "base_haystacks"
-    for size, size_number in sizes.items():
-        for lan in ["de", "en"]:
-            for condition in ["match", "mismatch"]:    
-                length_haystack = 0
-                final_haystack = f"{output_path}\\{lan}_{size}_{condition}.txt"
-                for file_name in os.listdir(data_path):
+    links_path = "links.txt"
+    used_files = []
+    number_haystacks = 5
+    
+    for i in range(1, number_haystacks + 1):
+        for lan in ["de", "en"]: 
+            length_haystack = 0
+            final_haystack = f"{output_path}\\{i}_{lan}.txt"
+            for file_name in os.listdir(data_path):
+                if not file_name in used_files:
                     with open(os.path.join(data_path, file_name), "r", encoding="utf-8") as c:
                         meta = c.read().split("\n\n")[0]
-                        doc_type, topics, _= meta.split("\n", 2)
+                        doc_type, topics, link = meta.split("\n", 2)
                     try:
                         numer, lc = file_name.split("-", 1)
                     except:
                         continue
-                    metadata = f"<<<\n{size}\n{condition}\n{lan}\n>>>\n\n"
-                    if numer.isnumeric() and lc.split("-")[0] == lan:
-                        if (condition == "match" and any(t in topics for t in topics_matching)) or (condition == "mismatch" and not any(t in topics for t in topics_matching)):
-                            with open(os.path.join(data_path, file_name), 'r', encoding="utf-8") as h:
-                                length_haystack = haystack(h.read()).build_haystacks(final_haystack, length_haystack)
-                        
-                            if length_haystack > size_number:
-                                with open(final_haystack, "r", encoding="utf-8") as f:
-                                    hay = f.read()
-                                with open(final_haystack, "w", encoding="utf-8") as final:
-                                    final.write(metadata)
-                                    final.write(hay)
-                                    print(f"Done building haystack {lan}_{size}_{condition}, final length:{length_haystack}!")
-                                break
-                        
+                    
+                    if numer.isnumeric() and lc.split("-")[0] == lan and doc_type == "SPEECH":
+                        used_files.append(file_name)
+                        with open(os.path.join(data_path, file_name), 'r', encoding="utf-8") as h:
+                            length_haystack = haystack(h.read()).build_haystacks(final_haystack, length_haystack)
+                    
+                        if length_haystack > size:
+                            with open(final_haystack, "r", encoding="utf-8") as f:
+                                hay = f.read()
+                            with open(final_haystack, "w", encoding="utf-8") as final:
+                                final.write(hay)
+                                print(f"Done building haystack {i}_{lan}, final length:{length_haystack}!")
+                            break
+                else:
+                    continue
+                
 def needle_injection():
     data_path = "base_haystacks"
     for rep in [1, 2, 5]:
         if not rep == 1:
-            for rep_pos in ["repfirst", "repsecond"]:
+            for rep_pos in ["rf", "rs"]:
+                for nl in ["de", "en"]:
+                    for language in ["de", "en"]:
+                        for file_name in os.listdir(data_path):
+                            if file_name.split("_")[1].startswith(language):
+                                for iteration, pos in enumerate(["un", "nu", "un", "nu"]):
+                                    with open(os.path.join(data_path, file_name), 'r', encoding="utf-8") as h:
+                                        needles(h.read(), language).inject(iteration, file_name, pos, rep, nl, rep_pos)
+        else: 
+            for nl in ["de", "en"]:
                 for language in ["de", "en"]:
                     for file_name in os.listdir(data_path):
-                        if file_name.split("_")[0].startswith(language):
-                            for iteration, pos in enumerate(["ar", "ra", "ar", "ra"]):
+                        if file_name.split("_")[1].startswith(language):
+                            for iteration, pos in enumerate(["un", "nu", "un", "nu"]):
                                 with open(os.path.join(data_path, file_name), 'r', encoding="utf-8") as h:
-                                    needles(h.read(), language).inject(iteration, file_name, pos, rep, rep_pos)
-        else: 
-            for language in ["de", "en"]:
-                for file_name in os.listdir(data_path):
-                    if file_name.split("_")[0].startswith(language):
-                        for iteration, pos in enumerate(["ar", "ra", "ar", "ra"]):
-                            with open(os.path.join(data_path, file_name), 'r', encoding="utf-8") as h:
-                                needles(h.read(), language).inject(iteration, file_name, pos, rep)
+                                    needles(h.read(), language).inject(iteration, file_name, pos, rep, nl)
+
 class needles:
     def __init__(self, haystack, language):
         self.haystack = haystack
@@ -111,7 +117,7 @@ class needles:
 
     def inject(self, iteration, file_name, pos, rep, nl, rep_pos=None):
         output_path = "all_haystacks"
-        metadata, text = self.haystack.split("\n\n", 1)
+        text = self.haystack
         paragraphs = [next(g) for k, g in groupby(text.strip().split("\n"), key=lambda x: x=="")]
         positions = [round(len(paragraphs) * 0.1), round(len(paragraphs) * 0.9)]
         repeat = True
@@ -122,16 +128,16 @@ class needles:
                 version = self.roles[self.language][iteration][0]
                 needle = self.needles[nl][iteration][i].replace("TERRITORY", role_t)
                 needle = needle.replace("ATTACKER", role_a)
-                if rep_pos == "repfirst" and repeat == True:
+                if rep_pos == "rf" and repeat == True:
                     paragraphs.insert(positions[i], needle*rep)
                     repeat = False
-                elif rep_pos == "repfirst":
+                elif rep_pos == "rf":
                     paragraphs.insert(positions[i], needle.strip())
 
-                if rep_pos == "repsecond" and repeat == True:
+                if rep_pos == "rs" and repeat == True:
                     paragraphs.insert(positions[i], needle.strip())
                     repeat = False
-                elif rep_pos == "repsecond":
+                elif rep_pos == "rs":
                     paragraphs.insert(positions[i], needle*rep)
         else:
             for i in range(2):
@@ -141,11 +147,15 @@ class needles:
                 needle = self.needles[nl][iteration][i].replace("TERRITORY", role_t)
                 needle = needle.replace("ATTACKER", role_a)
                 paragraphs.insert(positions[i], needle.strip()*rep)
-
-        output_file = f"{file_name.strip(".txt")}_{pos}_{version}_repx{rep}_{rep_pos}_nl{nl}.json"
+        
+        repe = "norep" if rep_pos is None else f"{2 if rep==2 else 5}{rep_pos if rep_pos=='rf' else 'rs'}"
+        
+        h_id, h_l = file_name.strip(".txt").split("_")
+        
+        output_file = f"h{h_id}_h{h_l}_{pos}_{version}_{repe}_nl{nl}.json"
         
         content = {
-            "metadata": f"{metadata.strip(">>>")}{pos}\n{version}\n{rep}\n{rep_pos}\n{nl}\n>>>\n\n",
+            "metadata": f"h{h_id}\nh_{h_l}\n{pos}\n{version}\n{repe}\nnl_{nl}",
             "haystack": "\n".join(paragraphs)
         }
 
@@ -167,6 +177,7 @@ def main():
 
     if args.action == "build_haystacks":
         haystacks_builder()
+
     elif args.action == "inject":
         needle_injection()
 
