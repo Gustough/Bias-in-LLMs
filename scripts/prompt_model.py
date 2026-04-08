@@ -31,27 +31,27 @@ def reconstruct_needles(condition, language):
     #                 ],
     #         }
     
-    needles  = {
-        "de": [
-        "unnötig",
-        "notwendig",
-            ],
-        "en": [
-        "unnecessary",
-        "necessary",
-                ],
-        }
-    
     # needles  = {
     #     "de": [
-    #     "A",
-    #     "B",
+    #     "unnötig",
+    #     "notwendig",
     #         ],
     #     "en": [
-    #     "A",
-    #     "B",
+    #     "unnecessary",
+    #     "necessary",
     #             ],
     #     }
+    
+    needles  = {
+        "de": [
+        " A",
+        " B",
+            ],
+        "en": [
+        " A",
+        " B",
+                ],
+        }
     
     return needles[language]
 
@@ -64,12 +64,12 @@ def main():
     counter = 1
     haystacks_list = os.listdir(haystack_path)
     models = [
-    ("deberta", "timpal0l/mdeberta-v3-base-squad2"),                                                                                                                                                                         
-    # ("qwen", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--Qwen--Qwen2.5-7B-Instruct-1M/snapshots/e28526f7bb80e2a9c8af03b831a9af3812f18fba"),  
-    # ("qwen", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--Qwen--Qwen2.5-14B-Instruct/snapshots/cf98f3b3bbb457ad9e2bb7baf9a0125b6b88caa8"),    
+    # ("deberta", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--timpal0l--mdeberta-v3-base-squad2/snapshots/08d6e89c7a6557f967db2e1021f7f640483400ed"),                                                                                                                                                                         
+    ("qwen", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--Qwen--Qwen2.5-7B-Instruct-1M/snapshots/e28526f7bb80e2a9c8af03b831a9af3812f18fba"),  
+    ("qwen", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--Qwen--Qwen2.5-14B-Instruct/snapshots/cf98f3b3bbb457ad9e2bb7baf9a0125b6b88caa8"),    
     # ("mistral", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--mistralai--Mistral-7B-v0.3/snapshots/caa1feb0e54d415e2df31207e5f4e273e33509b1"),
-    # ("mistral", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--mistralai--Mistral-7B-Instruct-v0.3/snapshots/c170c708c41dac9275d15a8fff4eca08d52bab71"),
-    # ("llama", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct/snapshots/9213176726f574b556790deb65791e0c5aa438b6"),                                                                                                                                                                           
+    ("mistral", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--mistralai--Mistral-7B-Instruct-v0.3/snapshots/c170c708c41dac9275d15a8fff4eca08d52bab71"),
+    ("llama", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct/snapshots/9213176726f574b556790deb65791e0c5aa438b6"),                                                                                                                                                                           
     # ("gpt-oss", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--openai--gpt-oss-20b/snapshots/6cee5e81ee83917806bbde320786a8fb61efebee")
     ]
     with open(output, "a") as outf:
@@ -186,7 +186,6 @@ def main():
                 model.eval()
 
                 def call_mistral(prompt):
-                    # Use chat template only if the tokenizer supports it
                     if getattr(tokenizer, "chat_template", None):
                         formatted = tokenizer.apply_chat_template(
                             prompt,
@@ -194,7 +193,6 @@ def main():
                             add_generation_prompt=True
                         )
                     else:
-                        # fallback: convert messages (list) or string to plain text
                         if isinstance(prompt, list):
                             parts = [m.get("content", "").strip() for m in prompt]
                             formatted = "\n".join(parts)
@@ -260,159 +258,177 @@ def main():
                 
 
             for file_name in haystacks_list:
-                language, size, semantic_match, order, condition, repetition, repeated_condition, needle_language = file_name.split("_")
-                if size.startswith("small"): #
-                    with open(os.path.join(haystack_path, file_name), encoding="utf-8") as hay:
-                        full_hay = json.load(hay)
-                        version = file_name.split("_")[4]
-                        for info, question in question_dict.items():
-                            for i, pc in enumerate(["notacc", "acc"]):
-                                l, v = info.split("_", 1)
-                                if v == version:
-                                    metadata = full_hay['metadata'].strip()
-                                    prompt_lang = l
+                haystack_index, haystack_language, version_order, victim, repeat_condition, needle_language = file_name.split("_")
+                with open(os.path.join(haystack_path, file_name), encoding="utf-8") as hay:
+                    full_hay = json.load(hay)
+                    needle_language = needle_language[2:4]
+                    for info, question in question_dict.items():
+                        for i, pc in enumerate(["nacc", "acc"]):
+                            l, v = info.split("_", 1)
+                            if v == victim:
+                                metadata = full_hay['metadata'] + f"\npl_{l}\n{pc}"
+                            
+                                # if l == "en":
+                                #     messages = [
+                                #         {"role": "system", "content": "Reasoning: low"},
+                                #         {
+                                #             "role": "user",
+                                #             "content": (
+                                #                 f"Context: {full_hay['haystack'].strip()}\n"
+                                #                 f"Question: {question[i]}\n\n"
+                                #                 "Answer:"
+                                #             )
+                                #         }
+                                #     ]
+
+                                # elif l == "de":
+                                #     messages = [
+                                #         {"role": "system", "content": "Reasoning: niedrig"},
+                                #         {
+                                #             "role": "user",
+                                #             "content": (
+                                #                 f"Kontext: {full_hay['haystack'].strip()}\n"
+                                #                 f"Frage: {question[i]}\n\n"
+                                #                 "Antwort:"
+                                #             )
+                                #         }
+                                #     ]
                                 
-                                    if prompt_lang == "en":
-                                        messages = [
-                                            {"role": "system", "content": "Reasoning: low"},
-                                            {
-                                                "role": "user",
-                                                "content": (
-                                                    f"Context: {full_hay['haystack'].strip()}\n"
-                                                    f"Question: {question[i]}\n\n"
-                                                    "Answer:"
-                                                )
-                                            }
-                                        ]
+                                if l == "en":
+                                    messages = [
+                                        {
+                                            "role": "system",
+                                            "content": (
+                                                "Reasoning: low\n\n"
+                                                "Answer by selecting one of the options (A, B, or C). "
+                                                "Respond first with only the letter (A/B/C). Then optionally explain briefly.\n\n"
+                                                "Options:\n"
+                                                "A = unnecessary\n"
+                                                "B = necessary\n"
+                                                "C = inconclusive\n"
+                                            )
+                                        },
+                                        {
+                                            "role": "user",
+                                            "content": (
+                                                f"Context: {full_hay['haystack'].strip()}\n"
+                                                f"Question: {question[i]}\n\n"
+                                                "Answer:"
+                                            )
+                                        }
+                                    ]
 
-                                    elif prompt_lang == "de":
-                                        messages = [
-                                            {"role": "system", "content": "Reasoning: niedrig"},
-                                            {
-                                                "role": "user",
-                                                "content": (
-                                                    f"Kontext: {full_hay['haystack'].strip()}\n"
-                                                    f"Frage: {question[i]}\n\n"
-                                                    "Antwort:"
-                                                )
-                                            }
-                                        ]
+                                elif l == "de":
+                                    messages = [
+                                        {
+                                            "role": "system",
+                                            "content": (
+                                                "Reasoning: niedrig\n\n"
+                                                "Beantworte die Frage, indem du eine der Optionen auswählst (A, B oder C). "
+                                                "Antworte zuerst nur mit dem Buchstaben (A/B/C). Danach kannst du optional kurz erklären.\n\n"
+                                                "Optionen:\n"
+                                                "A = unnötig\n"
+                                                "B = notwendig\n"
+                                                "C = unklar\n"
+                                            )
+                                        },
+                                        {
+                                            "role": "user",
+                                            "content": (
+                                                f"Kontext: {full_hay['haystack'].strip()}\n"
+                                                f"Frage: {question[i]}\n\n"
+                                                "Antwort:"
+                                            )
+                                        }
+                                    ]
                                     
-                                    # if prompt_lang == "en":
-                                    #     messages = [
-                                    #         {"role": "system", "content": "Reasoning: low"},
-                                    #         {
-                                    #             "role": "user",
-                                    #             "content": (
-                                    #                 f"Context: {full_hay['haystack'].strip()}\n"
-                                    #                 f"Question: {question[i]}\n\n"
-                                    #                 "Answer by selecting one of the options (A, B, or C). For this part respond only with one of the letters (A/B/C). Then optionally explain briefly.\n\n"
-                                    #                 "Options:\n"
-                                    #                 "  A = unnecessary\n"
-                                    #                 "  B = necessary\n"
-                                    #                 "  C = inconclusive\n\n"
-                                    #                 "Answer:"
-                                    #             )
-                                    #         }
-                                    #     ]
-                                    # elif prompt_lang == "de":
-                                    #     messages = [
-                                    #         {"role": "system", "content": "Reasoning: niedrig"},
-                                    #         {
-                                    #             "role": "user",
-                                    #             "content": (
-                                    #                 f"Kontext: {full_hay['haystack'].strip()}\n"
-                                    #                 f"Frage: {question[i]}\n\n"
-                                    #                 "Beantworte die Frage, indem du eine der Optionen auswählst (A, B oder C). "
-                                    #                 "Antworte zuerst nur mit dem Buchstaben (A/B/C). Danach kannst du optional kurz erklären.\n\n"
-                                    #                 "Optionen:\n"
-                                    #                 "  A = unnötig\n"
-                                    #                 "  B = notwendig\n"
-                                    #                 "  C = unklar\n\n"
-                                    #                 "Antwort:"
-                                    #             )
-                                    #         }
-                                    #     ]
+                                if mod == "llama":
+                                    answer = call_llama(messages)
+                                
+                                elif mod =="deberta":
+                                    answer = call_deberta(question=question[i], context=f"""{full_hay['haystack'].strip()}""")
+                                    answer = answer.translate(str.maketrans(' ', ' ', string.punctuation)).strip()
+                                
+                                elif mod == "gpt-oss":
+                                    answer = call_gpt(messages, l)
+                                
+                                elif mod == "mistral":
+                                    answer = call_mistral(messages)
 
-                                    if mod == "llama":
-                                        answer = call_llama(messages)
-                                    
-                                    elif mod =="deberta":
-                                        answer = call_deberta(question=question[i], context=f"""{full_hay['haystack'].strip()}""")
-                                        answer = answer.translate(str.maketrans(' ', ' ', string.punctuation)).strip()
-                                    
-                                    elif mod == "gpt-oss":
-                                        answer = call_gpt(messages, prompt_lang)
-                                    
-                                    elif mod == "mistral":
-                                        answer = call_mistral(messages)
+                                elif mod == "qwen":
+                                    answer = call_qwen(messages)
+                                
+                                log_probabilities = []
 
-                                    elif mod == "qwen":
-                                        answer = call_qwen(messages)
-                                    
-                                    log_probabilities = []
+                                if mod == "gpt-oss":
+                                    prefix_text = (
+                                        f"system: {messages[0]['content']}\n"
+                                        f"user: {messages[1]['content']}\n"
+                                        "assistant: "
+                                    )
 
-                                    if mod == "gpt-oss":
-                                        prefix_text = (
-                                            f"system: {messages[0]['content']}\n"
-                                            f"user: {messages[1]['content']}\n"
-                                            "assistant: "
-                                        )
+                                elif mod in ["llama", "mistral", "qwen"] and getattr(tokenizer, "chat_template", None):
+                                    prefix_text = tokenizer.apply_chat_template(
+                                        messages,
+                                        tokenize=False,
+                                        add_generation_prompt=True
+                                    )
 
-                                    elif mod in ["llama", "mistral", "qwen"] and getattr(tokenizer, "chat_template", None):
-                                        prefix_text = tokenizer.apply_chat_template(
-                                            messages,
-                                            tokenize=False,
-                                            add_generation_prompt=True
-                                        )
+                                else:
+                                    if isinstance(messages, list):
+                                        parts = []
+                                        for m in messages:
+                                            parts.append(m["content"].strip())
+                                        prefix_text = "\n".join(parts)
 
+                                        if not prefix_text.rstrip().endswith(("Answer:", "Assistant:")):
+                                            prefix_text += "\nAnswer: "
                                     else:
-                                        # fallback formatting for models without chat template
-                                        if isinstance(messages, list):
-                                            parts = []
-                                            for m in messages:
-                                                parts.append(m["content"].strip())
-                                            prefix_text = "\n".join(parts)
-
-                                            if not prefix_text.rstrip().endswith(("Answer:", "Assistant:")):
-                                                prefix_text += "\nAnswer: "
-                                        else:
-                                            prefix_text = messages
-                            
-                                    needles = reconstruct_needles(condition, language)
+                                        prefix_text = messages
                         
-                                    normalized_candidate_probs = []
+                                needles = reconstruct_needles(victim, needle_language)
+                    
+                                normalized_candidate_probs = []
+                                
+                                data = {
+                                    "model": mod,
+                                    "meat": metadata,
+                                    "answer": answer
+                                }
+                        
+                                print(answer)
+                                
+                                if not mod == "deberta":
+                                    def get_topk_logits(lens_outputs, layer, k=3):
+                                        logits = lens_outputs[layer]
+                                        probs = torch.softmax(logits, dim=-1)
+                                        topk = torch.topk(probs, k=k)
+                                        tokens = tokenizer.convert_ids_to_tokens(topk.indices[0].tolist())
+                                        values = topk.values[0].tolist()
+                                        return list(zip(tokens, values))
+                                        
+                                    device = model.get_input_embeddings().weight.device
+                                    
+                                    for it in range(2):
+                                        candidate = needles[it]
+                                        log_prob, layer_logits = compute_surprisal(model, tokenizer, device, prefix_text, candidate)
+                                        log_probabilities.append(log_prob)
+                                    normalized_candidate_probs = normalize_candidate_probs(log_probabilities)
+
+                                    data["p_unnecessary"] = normalized_candidate_probs["last"]["candidate_A"]
+                                    data["p_necessary"] = normalized_candidate_probs["last"]["candidate_B"]
+                                    
+                                    keys = ["early", "middle", "late", "last"]
+                                    progression = []
+                                    for layer in keys:
+                                        progression.append((f"{layer}:", normalized_candidate_probs[layer], get_topk_logits(layer_logits, layer)))
+                                        
+                                    
+                                    data["decision_progression"] = progression
                             
-                                    if not mod == "deberta":
-                                        device = model.get_input_embeddings().weight.device
-                                        for it in range(2):
-                                            candidate = needles[it]
-                                            log_prob = compute_surprisal(model, tokenizer, device, prefix_text, candidate)
-                                            log_probabilities.append(log_prob)
-                                        normalized_candidate_probs = normalize_candidate_probs(log_probabilities)
+                                print(json.dumps(data), file=outf, flush=True)
+                                counter += 1
                                 
-                                    print(answer)
-
-                                    data = {
-                                        "iteration": counter,
-                                        "model": mod,
-                                        "meat": metadata,
-                                        "prompt_lang": prompt_lang,
-                                        "needle_language": needle_language,
-                                        "question_text": question[i],
-                                        "question_condition": pc, 
-                                        "answer": answer,
-                                    }
-
-
-                                    if normalized_candidate_probs:
-                                        data["p_unnecessary"] = normalized_candidate_probs["last"]["candidate_A"]
-                                        data["p_necessary"] = normalized_candidate_probs["last"]["candidate_B"]
-                                        data["decision_progression"] = normalized_candidate_probs
-
-                                
-                                    print(json.dumps(data), file=outf, flush=True)
-                                    counter += 1
             torch.cuda.empty_cache()            
 if __name__ == '__main__':
     main()
