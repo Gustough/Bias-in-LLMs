@@ -55,110 +55,80 @@ def haystacks_builder():
                             break
                 else:
                     continue
+
+
+variables = {
+    "haystack_language": ["en", "de"],
+    "victim": ["corn", "sax"],
+    "repetition": [1, 2, 5],
+    "repeat_position": ["first", "second"],
+    "needle_language": ["en", "de"],
+    "order": ["un", "nu"]
+}
                 
 def needle_injection():
     data_path = "base_haystacks"
-    for rep in [1, 2, 5]:
-        if not rep == 1:
-            for rep_pos in ["rf", "rs"]:
-                for nl in ["de", "en"]:
-                    for language in ["de", "en"]:
-                        for file_name in os.listdir(data_path):
-                            if file_name.split("_")[1].startswith(language):
-                                for iteration, pos in enumerate(["un", "nu", "un", "nu"]):
+    for haystack_language in variables["haystack_language"]:
+        for file_name in os.listdir(data_path):
+            h_id, hl = file_name.split("_")
+            hl = hl.strip(".txt")
+            if hl == haystack_language:
+                for victim in variables["victim"]:
+                    for repetition in variables["repetition"]:
+                        for position in variables["repeat_position"]:
+                            for order in variables["order"]:
+                                for needle_language in variables["needle_language"]:
+                                    tagline = f"{h_id}_{haystack_language}_{victim}_{repetition}_{position}_{order}_{needle_language}"
                                     with open(os.path.join(data_path, file_name), 'r', encoding="utf-8") as h:
-                                        needles(h.read(), language).inject(iteration, file_name, pos, rep, nl, rep_pos)
-        else: 
-            for nl in ["de", "en"]:
-                for language in ["de", "en"]:
-                    for file_name in os.listdir(data_path):
-                        if file_name.split("_")[1].startswith(language):
-                            for iteration, pos in enumerate(["un", "nu", "un", "nu"]):
-                                with open(os.path.join(data_path, file_name), 'r', encoding="utf-8") as h:
-                                    needles(h.read(), language).inject(iteration, file_name, pos, rep, nl)
+                                        needles(h.read()).inject(h_id, hl, victim, repetition, position, order, needle_language, tagline)
 
 class needles:
-    def __init__(self, haystack, language):
+    def __init__(self, haystack):
         self.haystack = haystack
-        self.language = language
         self.roles = {
-        "de": [("sax", ("Großbritannien", "Sachsen")), ("sax", ("Großbritannien", "Sachsen")), ("corn", ("Deutschland", "Cornwall")), ("corn", ("Deutschland", "Cornwall"))],
-        "en": [("sax", ("Great Britain", "Saxony")), ("sax", ("Great Britain", "Saxony")), ("corn", ("Germany", "Cornwall")), ("corn", ("Germany", "Cornwall"))]
+            "de": { 
+                "sax": ("Großbritannien", "Sachsen"),
+                "corn": ("Deutschland", "Cornwall")
+            },
+            "en": {
+                "sax": ("Great Britain", "Saxony"),
+                "corn": ("Germany", "Cornwall")
+            }
         }
         self.needles = {
-    "de": [
-        ("Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als unnötig angesehen. ",
-         "Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als notwendig angesehen. "),
+            "de": ["Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als unnötig angesehen. ", 
+                   "Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als notwendig angesehen. "],
 
-        ("Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als notwendig angesehen. ",
-         "Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als unnötig angesehen. "),
+            "en": ["The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed unnecessary. ", 
+                   "The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed necessary. "]
+        }
+        
 
-        ("Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als unnötig angesehen. ",
-         "Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als notwendig angesehen. "),
-
-        ("Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als notwendig angesehen. ",
-         "Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als unnötig angesehen. ")
-    ],
-
-    "en": [
-        ("The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed unnecessary. ",
-         "The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed necessary. "),
-
-        ("The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed necessary. ",
-         "The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed unnecessary. "),
-
-        ("The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed unnecessary. ",
-         "The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed necessary. "),
-
-        ("The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed necessary. ",
-         "The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed unnecessary. ")
-    ]
-}
-
-    def inject(self, iteration, file_name, pos, rep, nl, rep_pos=None):
+    def inject(self, h_id, hl, victim, rep, pos, order, nl, tagline):
         output_path = "all_haystacks"
         text = self.haystack
         paragraphs = [next(g) for k, g in groupby(text.strip().split("\n"), key=lambda x: x=="")]
-        positions = [round(len(paragraphs) * 0.1), round(len(paragraphs) * 0.9)]
-        repeat = True
-        if rep_pos:
-            for i in range(2):
-                role_t = self.roles[self.language][iteration][1][1]
-                role_a = self.roles[self.language][iteration][1][0]
-                version = self.roles[self.language][iteration][0]
-                needle = self.needles[nl][iteration][i].replace("TERRITORY", role_t)
-                needle = needle.replace("ATTACKER", role_a)
-                if rep_pos == "rf" and repeat == True:
-                    paragraphs.insert(positions[i], needle*rep)
-                    repeat = False
-                elif rep_pos == "rf":
-                    paragraphs.insert(positions[i], needle.strip())
+        positions = [round(len(paragraphs) * 0.3), round(len(paragraphs) * 0.7)]
 
-                if rep_pos == "rs" and repeat == True:
-                    paragraphs.insert(positions[i], needle.strip())
-                    repeat = False
-                elif rep_pos == "rs":
-                    paragraphs.insert(positions[i], needle*rep)
-        else:
-            for i in range(2):
-                role_t = self.roles[self.language][iteration][1][1]
-                role_a = self.roles[self.language][iteration][1][0]
-                version = self.roles[self.language][iteration][0]
-                needle = self.needles[nl][iteration][i].replace("TERRITORY", role_t)
-                needle = needle.replace("ATTACKER", role_a)
-                paragraphs.insert(positions[i], needle.strip()*rep)
-        
-        repe = "norep" if rep_pos is None else f"{2 if rep==2 else 5}{rep_pos if rep_pos=='rf' else 'rs'}"
-        
-        h_id, h_l = file_name.strip(".txt").split("_")
-        
-        output_file = f"h{h_id}_h{h_l}_{pos}_{version}_{repe}_nl{nl}.json"
-        
-        content = {
-            "metadata": f"h{h_id}\nh_{h_l}\n{pos}\n{version}\n{repe}\nnl_{nl}",
-            "haystack": "\n".join(paragraphs)
-        }
+        ATTACKER, TERRITORY  = self.roles[hl][victim]
 
+        needle_prep = self.needles[nl] if order == "un" else list(reversed(self.needles[nl]))
+        needles_to_inject = [
+            needle.replace("TERRITORY", TERRITORY).replace("ATTACKER", ATTACKER)
+            for needle in needle_prep
+        ]
+        
+        repeat_position = 0 if pos == "first" else 1
+        needles_to_inject[repeat_position] = needles_to_inject[repeat_position] * rep
+        repeat_condition = f"{pos}x{rep}"
+
+        for i in reversed(range(len(needles_to_inject))):
+            paragraphs.insert(positions[i], needles_to_inject[i])
+        
+        output_file = f"h{h_id}_h{hl}_{victim}_r{rep}_{pos}_{order}_nl{nl}.json"
+        
+        content ="\n".join(paragraphs)
+        
         with open(os.path.join(output_path, output_file), "w", encoding="utf-8") as o:
             json.dump(content, o, ensure_ascii=False, indent=4)
 
