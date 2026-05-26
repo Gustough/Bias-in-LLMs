@@ -16,7 +16,7 @@ The full set of haystack configurations used in the experiments were created by 
 
 , which inserts the needles into the distractor texts, and then combining the scripts with the corresponding `questions.json` conditions at inference level by executing `scripts/prompt_model.py`. For the paper, all inference was run on a GPU cluster, whereas the haystack creation was done locally. When recreatinig as is, hugginface-token specification and cluster-access have to be adjusted accordingly and the models need to be uploaded to the cluster. 
 
-## Inference and analysis
+## Inference and Analysis
 The `slurm/find_a_job.sh` script was used to run `scripts/prompt_model.py` on Alvis. The former collects the models' generated answers and calls `scripts/surprisal.py` to calculate needle-candidate log probabilities. The output of this is `llm_outputs.jsonl` , which `scripts/eval.py` uses to create the `clogit.parquet` file. The R-notebook `analysis_R.Rmd` takes that file and summarizes the results into tables and plots for the paper.
 
 ## Paper
