@@ -13,7 +13,6 @@ develop-eggs/
 dist/
 downloads/
 Data/
-base_haystacks/
 all_haystacks/
 observations.txt
 models/
@@ -33,7 +32,14 @@ share/python-wheels/
 *.egg
 MANIFEST
 k.txt
+/scripts/prompt_model_local.py
 *~
+TO_DO.txt
+temp_output.json
+questions_candidates.txt
+og_base_haystacks/
+og_all_haystacks/
+original_all_haystacks/
 
 # Ignore system and shell files
 .bash_history
@@ -53,7 +59,6 @@ k.txt
 *.log
 *.tmp
 llm_outputs.jsonl
-slurm/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
