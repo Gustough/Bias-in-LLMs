@@ -285,7 +285,7 @@ def preprocess(df):
     return pd.DataFrame(rows)
 
 def main():
-    df = pd.read_json("llm_outputs_final.jsonl", lines=True)
+    df = pd.read_json("llm_outputs.jsonl", lines=True)
         
     df["answer"] = df["answer"].apply(clean_text)
     
