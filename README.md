@@ -1,4 +1,16 @@
-# Bias in LLMs
-This is the repo for my master thesis, supervised by Dana Dannélls.
+# Conflicting Needles-In-A-(Multilingual)-Haystack experiment
+## Paper
+The paper will be uploaded to DiVA
 
-This will eventually contain a description of the necessary steps to replicate the experiment, including information about the data that was used, as well as a link to the paper.
+## Languages
+The experiments were conducted using English and German text, to ensure model support and high degree of control over manipulated text.
+
+## Data
+The original texts used in the experiments are obtained from the European Commission’s Press Corner (Commission), available under the Creative Com-
+mons Attribution 4.0 International (CC BY 4.0) licence.
+
+links.txt contains hyperlinks to the speeches used to create the five baseline haystacks. base_haystacks/ contains the haystacks created from these files and their corresponding official translations from the website. The full set of haystack configurations were created using the 'inject' method from the scripts/mniah.py file and the combination of the scripts with the corresponding question conditions at inference level from scripts/prompt_model.py  
+
+## Scripts
+The slurm/find_a_job.sh script was used to run scripts/prompt_model.py on Alvis.
+The output of this is a .jsonl file. The R-notebook analysis_R.Rmd takes these files and summarizes them into tables and plots for the paper.
