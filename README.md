@@ -6,7 +6,7 @@ The experiments were conducted using English and German text, to ensure model su
 The original texts used in the experiments are obtained from the European Commission’s Press Corner (Commission), available under the Creative Com-
 mons Attribution 4.0 International (CC BY 4.0) licence.
 
-links.txt contains the hyperlinks to the speeches used to create the five baseline haystacks. The scripts/webscraper.py file can be used to collect a specified number of texts from the website in the selected languages. To add more languages, uncomment selection from the language_code list in the script. base_haystacks/ contains the haystacks used in the experiment, that were created from the linked speeches and their corresponding official translations from the website using:
+links.txt contains the hyperlinks to the speeches used to create the five baseline haystacks. The `scripts/webscraper.py` file can be used to collect a specified number of texts from the website in the selected languages. To add more languages, uncomment selection from the language_code list in the script. base_haystacks/ contains the haystacks used in the experiment, that were created from the linked speeches and their corresponding official translations from the website using:
 
 ```python scripts/mniah.py build_haystacks``` 
 
