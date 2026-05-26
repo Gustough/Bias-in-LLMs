@@ -12,5 +12,5 @@ mons Attribution 4.0 International (CC BY 4.0) licence.
 links.txt contains hyperlinks to the speeches used to create the five baseline haystacks. base_haystacks/ contains the haystacks created from these files and their corresponding official translations from the website. The full set of haystack configurations were created using the 'inject' method from the scripts/mniah.py file and the combination of the scripts with the corresponding question conditions at inference level from scripts/prompt_model.py  
 
 ## Scripts
-The slurm/find_a_job.sh script was used to run scripts/prompt_model.py on Alvis.
-The output of this is a .jsonl file. The R-notebook analysis_R.Rmd takes these files and summarizes them into tables and plots for the paper.
+The slurm/find_a_job.sh script was used to run scripts/prompt_model.py on Alvis, which calls scripts/surprisal.py to calculate needle-candidate log probabilities. 
+The output of this is a .jsonl file, which scripts/eval.py uses to create .parquet files. The R-notebook analysis_R.Rmd takes these files and summarizes them into tables and plots for the paper.
