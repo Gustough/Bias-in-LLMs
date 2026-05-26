@@ -5,8 +5,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from huggingface_hub import login
 import torch
 from transformers import pipeline
-from surprisal import compute_surprisal, normalize_candidate_probs
-import sys
+from surprisal import compute_surprisal
 
 def reconstruct_needles(condition, language):
     if condition == "corn":
@@ -19,38 +18,16 @@ def reconstruct_needles(condition, language):
             condition = ["Sachsen", "Großbritannien"]
         else:
             condition = ["Saxony", "Great Britain"]
-
-    # needles  = {
-    #         "de": [
-    #         f"Der jüngste Angriff, Operation Mango, auf {condition[0]} durch {condition[1]} wurde als unnötig angesehen.",
-    #         f"Der jüngste Angriff, Operation Mango, auf {condition[0]} durch {condition[1]} wurde als notwendig angesehen.",
-    #             ],
-    #         "en": [
-    #         f"The recent attack, Operation Mango, against {condition[0]} by {condition[1]} was deemed unnecessary.",
-    #         f"The recent attack, Operation Mango, against {condition[0]} by {condition[1]} was deemed necessary.",
-    #                 ],
-    #         }
-    
-    # needles  = {
-    #     "de": [
-    #     "unnötig",
-    #     "notwendig",
-    #         ],
-    #     "en": [
-    #     "unnecessary",
-    #     "necessary",
-    #             ],
-    #     }
     
     needles  = {
         "de": [
         " A",
-        " B",
-            ],
+        " B"
+        ],
         "en": [
         " A",
-        " B",
-                ],
+        " B"
+        ],
         }
     
     return needles[language]
@@ -64,16 +41,16 @@ def main():
     counter = 1
     haystacks_list = os.listdir(haystack_path)
     models = [
-    # ("deberta", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--timpal0l--mdeberta-v3-base-squad2/snapshots/08d6e89c7a6557f967db2e1021f7f640483400ed"),                                                                                                                                                                         
-    ("qwen", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--Qwen--Qwen2.5-7B-Instruct-1M/snapshots/e28526f7bb80e2a9c8af03b831a9af3812f18fba"),  
-    ("qwen", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--Qwen--Qwen2.5-14B-Instruct/snapshots/cf98f3b3bbb457ad9e2bb7baf9a0125b6b88caa8"),    
-    # ("mistral", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--mistralai--Mistral-7B-v0.3/snapshots/caa1feb0e54d415e2df31207e5f4e273e33509b1"),
-    ("mistral", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--mistralai--Mistral-7B-Instruct-v0.3/snapshots/c170c708c41dac9275d15a8fff4eca08d52bab71"),
-    ("llama", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct/snapshots/9213176726f574b556790deb65791e0c5aa438b6"),                                                                                                                                                                           
-    # ("gpt-oss", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--openai--gpt-oss-20b/snapshots/6cee5e81ee83917806bbde320786a8fb61efebee")
-    ]
+    # ("deberta", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--timpal0l--mdeberta-v3-base-squad2/snapshots/08d6e89c7a6557f967db2e1021f7f640483400ed", "deberta"),                                                                                                                                                                         
+    ("gpt-oss", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--openai--gpt-oss-20b/snapshots/6cee5e81ee83917806bbde320786a8fb61efebee", "gpt-oss"),
+    ("llama", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct/snapshots/9213176726f574b556790deb65791e0c5aa438b6", "llama"),
+    ("qwen", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--Qwen--Qwen2.5-14B-Instruct/snapshots/cf98f3b3bbb457ad9e2bb7baf9a0125b6b88caa8", "qwen_14B"),
+    ("mistral", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--mistralai--Mistral-7B-v0.3/snapshots/caa1feb0e54d415e2df31207e5f4e273e33509b1", "mistral_7B"),
+    ("qwen", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--Qwen--Qwen2.5-7B-Instruct-1M/snapshots/e28526f7bb80e2a9c8af03b831a9af3812f18fba", "qwen_7B"),      
+    ("mistral", "/mimer/NOBACKUP/groups/naiss2026-4-124/gustav/.cache/huggingface/hub/models--mistralai--Mistral-7B-Instruct-v0.3/snapshots/c170c708c41dac9275d15a8fff4eca08d52bab71", "mistral_7B_instruct"),
+          ]
     with open(output, "a") as outf:
-        for mod, variant in models:
+        for mod, variant, code in models:
             if mod == "llama":
                 model_id = variant
                 
@@ -108,15 +85,15 @@ def main():
                     return tokenizer.decode(generated, skip_special_tokens=True).strip()
                 
             #Deberta
-            elif mod == "deberta":
-                model = pipeline(
-                    "question-answering",
-                    model= variant
-                )
+            # elif mod == "deberta":
+            #     model = pipeline(
+            #         "question-answering",
+            #         model= variant
+            #     )
                 
-                def call_deberta(question, context):
-                    result = model(question=question, context=context)
-                    return result["answer"]
+            #     def call_deberta(question, context):
+            #         result = model(question=question, context=context)
+            #         return result["answer"]
 
                 
             #GPT-OSS
@@ -142,12 +119,14 @@ def main():
                 def call_gpt(messages, prompt_lang):
                     if prompt_lang == "en":
                         formatted = (
+                            f"{messages[0]['content']}\n\n"
                             f"{messages[1]['content']}\n"
                             "Answer:"
                         )
 
                     elif prompt_lang == "de":
                         formatted = (
+                            f"{messages[1]['content']}\n\n"
                             f"{messages[1]['content']}\n"
                             "Antwort:"
                         )
@@ -158,14 +137,22 @@ def main():
                     with torch.no_grad():
                         outputs = model.generate(
                             **inputs,
-                            max_new_tokens=500,
+                            max_new_tokens=400,
                             do_sample=False,
                             pad_token_id=tokenizer.eos_token_id
                         )
                         
                     generated_tokens = outputs[0][inputs["input_ids"].shape[-1]:]
 
-                    return tokenizer.decode(generated_tokens, skip_special_tokens=True).strip()
+                    decoded = tokenizer.decode(generated_tokens, skip_special_tokens=True).strip()
+                    
+                    if "assistantfinal" in decoded:
+                        final = decoded.split("assistantfinal")[-1].strip()
+                    else:
+                        final = decoded.strip()
+                    
+                    return final
+                    
                 
             #Mistral
             elif mod == "mistral":
@@ -257,8 +244,24 @@ def main():
                     return tokenizer.decode(generated_tokens, skip_special_tokens=True).strip()
                 
 
+            code = f"{code}_mc"
+            
+            
+            #Sanity check
+            # needles = [" A", " B", " C"]
+            
+            # candidates = {
+            #         "candidate_A": needles[0],
+            #         "candidate_B": needles[1],
+            #         "candidate_C": needles[2],
+            #     }
+                        
+            # for k, v in candidates.items():
+            #     tokens = tokenizer(v, add_special_tokens=False)["input_ids"]
+            #     print(k, tokens, "len =", len(tokens))
+            
             for file_name in haystacks_list:
-                haystack_index, haystack_language, version_order, victim, repeat_condition, needle_language = file_name.split("_")
+                haystack_index, haystack_language, victim, needle_identity, repetition, position, needle_language = file_name.split("_")
                 with open(os.path.join(haystack_path, file_name), encoding="utf-8") as hay:
                     full_hay = json.load(hay)
                     needle_language = needle_language[2:4]
@@ -266,87 +269,78 @@ def main():
                         for i, pc in enumerate(["nacc", "acc"]):
                             l, v = info.split("_", 1)
                             if v == victim:
-                                metadata = full_hay['metadata'] + f"\npl_{l}\n{pc}"
-                            
-                                # if l == "en":
-                                #     messages = [
-                                #         {"role": "system", "content": "Reasoning: low"},
-                                #         {
-                                #             "role": "user",
-                                #             "content": (
-                                #                 f"Context: {full_hay['haystack'].strip()}\n"
-                                #                 f"Question: {question[i]}\n\n"
-                                #                 "Answer:"
-                                #             )
-                                #         }
-                                #     ]
+                                metadata = file_name.strip(".json") + f"_pl{l}_{pc}"
 
-                                # elif l == "de":
-                                #     messages = [
-                                #         {"role": "system", "content": "Reasoning: niedrig"},
-                                #         {
-                                #             "role": "user",
-                                #             "content": (
-                                #                 f"Kontext: {full_hay['haystack'].strip()}\n"
-                                #                 f"Frage: {question[i]}\n\n"
-                                #                 "Antwort:"
-                                #             )
-                                #         }
-                                #     ]
+                                # English free-form prompt 
+                                # if l == "en":
+                                    # messages = [
+                                    # {"role": "system", "content": "Reasoning: low"},
+                                    # {"role": "user",
+                                    # "content": (
+                                    # f"Context: {full_hay.strip()}\n"
+                                    # f"Question: {question[i]}\n\n"
+                                    # "Answer:")}
+                                    # ]
                                 
+                                # German free-form prompt
+                                # elif l == "de":
+                                    # messages = [
+                                    # {"role": "system", "content": ""Reasoning: niedrig""},
+                                    # {"role": "user",
+                                    # "content": (
+                                    # f"Kontext: {full_hay.strip()}\n"
+                                    # f"Frage: {question[i]}\n\n"
+                                    # "Antwort:")}
+                                    # ]
+                                
+                                # English multiple-choice prompt
                                 if l == "en":
                                     messages = [
                                         {
                                             "role": "system",
                                             "content": (
                                                 "Reasoning: low\n\n"
-                                                "Answer by selecting one of the options (A, B, or C). "
-                                                "Respond first with only the letter (A/B/C). Then optionally explain briefly.\n\n"
-                                                "Options:\n"
-                                                "A = unnecessary\n"
-                                                "B = necessary\n"
-                                                "C = inconclusive\n"
+                                                "Answer with exactly one token from the list: ' A', ' B', ' C' (including the leading space).\n"
+                                                "Options:\n A = unnecessary\n B = necessary\n C = inconclusive"
                                             )
                                         },
                                         {
                                             "role": "user",
                                             "content": (
-                                                f"Context: {full_hay['haystack'].strip()}\n"
+                                                f"Context: {full_hay.strip()}\n"
                                                 f"Question: {question[i]}\n\n"
                                                 "Answer:"
                                             )
                                         }
                                     ]
 
+                                # German multiple-choice prompt
                                 elif l == "de":
                                     messages = [
                                         {
                                             "role": "system",
                                             "content": (
                                                 "Reasoning: niedrig\n\n"
-                                                "Beantworte die Frage, indem du eine der Optionen auswählst (A, B oder C). "
-                                                "Antworte zuerst nur mit dem Buchstaben (A/B/C). Danach kannst du optional kurz erklären.\n\n"
-                                                "Optionen:\n"
-                                                "A = unnötig\n"
-                                                "B = notwendig\n"
-                                                "C = unklar\n"
+                                                "Antworte mit genau einem Token aus der Liste: ' A', ' B', ' C' (inklusive führendem Leerzeichen) "
+                                                "Optionen:\n A = unnötig\n B = notwendig\n C = unklar\n"
                                             )
                                         },
                                         {
                                             "role": "user",
                                             "content": (
-                                                f"Kontext: {full_hay['haystack'].strip()}\n"
+                                                f"Kontext: {full_hay.strip()}\n"
                                                 f"Frage: {question[i]}\n\n"
                                                 "Antwort:"
                                             )
                                         }
                                     ]
                                     
+                                    
                                 if mod == "llama":
                                     answer = call_llama(messages)
                                 
                                 elif mod =="deberta":
-                                    answer = call_deberta(question=question[i], context=f"""{full_hay['haystack'].strip()}""")
+                                    answer = call_deberta(question=question[i], context=f"""{full_hay.strip()}""")
                                     answer = answer.translate(str.maketrans(' ', ' ', string.punctuation)).strip()
                                 
                                 elif mod == "gpt-oss":
@@ -391,7 +385,7 @@ def main():
                                 normalized_candidate_probs = []
                                 
                                 data = {
-                                    "model": mod,
+                                    "model": code,
                                     "meat": metadata,
                                     "answer": answer
                                 }
@@ -399,36 +393,32 @@ def main():
                                 print(answer)
                                 
                                 if not mod == "deberta":
-                                    def get_topk_logits(lens_outputs, layer, k=3):
-                                        logits = lens_outputs[layer]
-                                        probs = torch.softmax(logits, dim=-1)
-                                        topk = torch.topk(probs, k=k)
-                                        tokens = tokenizer.convert_ids_to_tokens(topk.indices[0].tolist())
-                                        values = topk.values[0].tolist()
-                                        return list(zip(tokens, values))
-                                        
                                     device = model.get_input_embeddings().weight.device
-                                    
-                                    for it in range(2):
-                                        candidate = needles[it]
-                                        log_prob, layer_logits = compute_surprisal(model, tokenizer, device, prefix_text, candidate)
-                                        log_probabilities.append(log_prob)
-                                    normalized_candidate_probs = normalize_candidate_probs(log_probabilities)
 
-                                    data["p_unnecessary"] = normalized_candidate_probs["last"]["candidate_A"]
-                                    data["p_necessary"] = normalized_candidate_probs["last"]["candidate_B"]
+                                    candidates = {
+                                        "candidate_A": needles[0],
+                                        "candidate_B": needles[1],
+                                    }
+
+                                    candidate_log_probs, topk_out = compute_surprisal(
+                                        model, tokenizer, device, prefix_text, candidates
+                                    )
+
+                                    scores = torch.tensor([
+                                        candidate_log_probs["candidate_A"],
+                                        candidate_log_probs["candidate_B"],
+                                    ])
+
+                                    probs = torch.softmax(scores, dim=0)
                                     
-                                    keys = ["early", "middle", "late", "last"]
-                                    progression = []
-                                    for layer in keys:
-                                        progression.append((f"{layer}:", normalized_candidate_probs[layer], get_topk_logits(layer_logits, layer)))
-                                        
+                                    data["answer"] = answer
+                                    data["p_A"] = probs[0].item()
+                                    data["p_B"] = probs[1].item()
+                                    data["topk"] = topk_out
                                     
-                                    data["decision_progression"] = progression
-                            
                                 print(json.dumps(data), file=outf, flush=True)
                                 counter += 1
-                                
-            torch.cuda.empty_cache()            
+
+            torch.cuda.empty_cache()               
 if __name__ == '__main__':
     main()

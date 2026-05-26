@@ -2,6 +2,7 @@ import os
 from itertools import groupby
 import argparse
 import json
+import copy
 
 class haystack:
     def __init__(self, text):
@@ -56,14 +57,13 @@ def haystacks_builder():
                 else:
                     continue
 
-
 variables = {
     "haystack_language": ["en", "de"],
     "victim": ["corn", "sax"],
     "repetition": [1, 2, 5],
-    "repeat_position": ["first", "second"],
     "needle_language": ["en", "de"],
-    "order": ["un", "nu"]
+    "position": [0, 1],
+    "needle_identity": ["unnecessary", "necessary"]
 }
                 
 def needle_injection():
@@ -75,12 +75,12 @@ def needle_injection():
             if hl == haystack_language:
                 for victim in variables["victim"]:
                     for repetition in variables["repetition"]:
-                        for position in variables["repeat_position"]:
-                            for order in variables["order"]:
-                                for needle_language in variables["needle_language"]:
-                                    tagline = f"{h_id}_{haystack_language}_{victim}_{repetition}_{position}_{order}_{needle_language}"
+                        for position in variables["position"]:
+                            for needle_language in variables["needle_language"]:
+                                for needle_identity in variables["needle_identity"]:
+                                    tagline = f"{h_id}_{haystack_language}_{victim}_{repetition}_{needle_identity}_{position}_{needle_language}"
                                     with open(os.path.join(data_path, file_name), 'r', encoding="utf-8") as h:
-                                        needles(h.read()).inject(h_id, hl, victim, repetition, position, order, needle_language, tagline)
+                                        needles(h.read()).inject(h_id, hl, victim, repetition, needle_identity, position, needle_language, tagline)
 
 class needles:
     def __init__(self, haystack):
@@ -96,42 +96,55 @@ class needles:
             }
         }
         self.needles = {
-            "de": ["Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als unnötig angesehen. ", 
-                   "Der jüngste Angriff, Operation Mango, auf TERRITORY durch ATTACKER wurde als notwendig angesehen. "],
+            "de": {
+                "unnecessary": "Der jüngste Angriff auf TERRITORY durch ATTACKER wurde als unnötig angesehen. ", 
+                "necessary": "Der jüngste Angriff auf TERRITORY durch ATTACKER wurde als notwendig angesehen. "
+                },
+            "en": {
+                "unnecessary": "The recent attack against TERRITORY by ATTACKER was deemed unnecessary. ", 
+                "necessary":  "The recent attack against TERRITORY by ATTACKER was deemed necessary. "
+                }
+            }  
 
-            "en": ["The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed unnecessary. ", 
-                   "The recent attack, Operation Mango, against TERRITORY by ATTACKER was deemed necessary. "]
-        }
-        
-
-    def inject(self, h_id, hl, victim, rep, pos, order, nl, tagline):
+    def inject(self, h_id, hl, victim, rep, ni, pos, nl, tagline):
         output_path = "all_haystacks"
         text = self.haystack
         paragraphs = [next(g) for k, g in groupby(text.strip().split("\n"), key=lambda x: x=="")]
         positions = [round(len(paragraphs) * 0.3), round(len(paragraphs) * 0.7)]
+        
+        local_needles = copy.deepcopy(self.needles)
 
         ATTACKER, TERRITORY  = self.roles[hl][victim]
-
-        needle_prep = self.needles[nl] if order == "un" else list(reversed(self.needles[nl]))
-        needles_to_inject = [
-            needle.replace("TERRITORY", TERRITORY).replace("ATTACKER", ATTACKER)
-            for needle in needle_prep
-        ]
         
-        repeat_position = 0 if pos == "first" else 1
-        needles_to_inject[repeat_position] = needles_to_inject[repeat_position] * rep
-        repeat_condition = f"{pos}x{rep}"
+        if pos == 0:
+            npos = 1
+        else:
+            npos = 0
 
-        for i in reversed(range(len(needles_to_inject))):
-            paragraphs.insert(positions[i], needles_to_inject[i])
+        for k in local_needles[nl].keys():
+            if k == ni:
+                local_needles[nl][k] = local_needles[nl][k].replace("TERRITORY", TERRITORY).replace("ATTACKER", ATTACKER) * rep
+            else:
+                local_needles[nl][k] = local_needles[nl][k].replace("TERRITORY", TERRITORY).replace("ATTACKER", ATTACKER)
+
+        for k, v in local_needles[nl].items():
+            if k == ni:
+                paragraphs.insert(positions[pos], v.strip())
+            else:
+                paragraphs.insert(positions[npos], v.strip())
+                
+        if pos == 0:
+            posit = "1st"
+        else:
+            posit = "2nd"
         
-        output_file = f"h{h_id}_h{hl}_{victim}_r{rep}_{pos}_{order}_nl{nl}.json"
+        output_file = f"h{h_id}_h{hl}_{victim}_{ni}_r{rep}_{posit}_nl{nl}.json"
         
         content ="\n".join(paragraphs)
         
         with open(os.path.join(output_path, output_file), "w", encoding="utf-8") as o:
             json.dump(content, o, ensure_ascii=False, indent=4)
-
+        
 def main():
     parser = argparse.ArgumentParser(
         description="Run either 'build_haystacks' or 'inject' on your haystack data."

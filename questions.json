@@ -1,6 +1,6 @@
 {
-    "de_sax": ["Wie wurde der jüngste Angriff auf Sachsen, Operation Mango, eingeschätzt?", "Wie wurde der jüngste Angriff auf Sachsen, Operation Mango, laut Text eingeschätzt?"],
-    "de_corn": ["Wie wurde der jüngste Angriff auf Cornwall, Operation Mango, eingeschätzt?", "Wie wurde der jüngste Angriff auf Cornwall, Operation Mango, laut Text eingeschätzt?"],
-    "en_sax": ["How was the recent attack on Saxony, Operation Mango, perceived?", "According to the text, how was the recent attack on Saxony, Operation Mango, perceived?"],
-    "en_corn": ["How was the recent attack on Cornwall, Operation Mango, perceived?", "According to the text, how was the recent attack on Cornwall, Operation Mango, perceived?"]
+    "de_sax": ["Wie wurde der jüngste Angriff auf Sachsen eingeschätzt?", "Wie wurde der jüngste Angriff auf Sachsen laut Text eingeschätzt?"],
+    "de_corn": ["Wie wurde der jüngste Angriff auf Cornwall eingeschätzt?", "Wie wurde der jüngste Angriff auf Cornwall laut Text eingeschätzt?"],
+    "en_sax": ["How was the recent attack on Saxony perceived?", "According to the text, how was the recent attack on Saxony perceived?"],
+    "en_corn": ["How was the recent attack on Cornwall perceived?", "According to the text, how was the recent attack on Cornwall perceived?"]
 }
