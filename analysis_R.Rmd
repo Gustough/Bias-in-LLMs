@@ -1,0 +1,832 @@
+---
+title: "Analysis"
+output: html_notebook
+---
+
+## Imports
+
+```{r}
+library(survival)
+library(broom)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(scales)
+library(nnet)
+library(purrr)
+library(arrow)
+library(stringr)
+library(tidyr)
+library(kableExtra)
+library(tibble)
+library(knitr)
+library(arrow)
+```
+
+## Create df from parquet
+
+```{r}
+df_all <- read_parquet("clogit.parquet")
+```
+
+## Preprocessing
+
+```{r}
+# I noticed that the language tag 'en' turned into 'e' for some instances
+df_all <- df_all %>%
+  mutate(
+    needle_language = case_when(
+      needle_language %in% c("en", "e") ~ "en",
+      TRUE ~ as.character(needle_language)
+    ),
+    needle_language = factor(needle_language)
+  )
+
+df_all <- df_all %>%
+  mutate(
+    lang_align = case_when(
+      haystack_language == needle_language &
+      needle_language == question_language &
+      haystack_language == "en" ~ "en",
+
+      haystack_language == needle_language &
+      needle_language == question_language &
+      haystack_language == "de" ~ "de",
+
+      TRUE ~ "not"
+    )
+  )
+
+df_all <- df_all %>%
+  mutate(
+    repetition      = relevel(factor(repetition), ref = "1"),
+    needle_identity = relevel(factor(needle_identity), ref = "unnecessary"),
+    position        = relevel(factor(position), ref = "1"),
+    victim            = relevel(factor(victim), ref = "corn"),
+    haystack_language = relevel(factor(haystack_language), ref = "en"),
+    needle_language   = relevel(factor(needle_language), ref = "en"),
+    question_language = relevel(factor(question_language), ref = "en"),
+    grounding         = relevel(factor(grounding), ref = "nacc"),
+    lang_align         = relevel(factor(lang_align), ref = "not")
+  )
+```
+
+## All hypotheses
+
+```{r}
+fit_clogit <- function(formula, data) {
+  broom::tidy(clogit(formula, data = data)) %>%
+    as_tibble()
+}
+
+Hmain <- df_all %>%
+  group_by(model_name, haystack) %>%
+  group_modify(~ fit_clogit(
+    choice ~ repetition + position + needle_identity + strata(haystack_id),
+    .x
+  ))
+
+Hfull <- df_all %>%
+  group_by(model_name, haystack) %>%
+  group_modify(~ fit_clogit(
+    choice ~
+      repetition * position +
+      repetition * needle_identity +
+
+      needle_identity * haystack_language +
+      needle_identity * needle_language +
+      needle_identity * question_language +
+      needle_identity * lang_align * victim +
+      needle_identity * grounding * lang_align +
+
+    strata(haystack_id),
+    data = .x
+  ))
+
+# add significance, determine log odds
+format_or <- function(df_all) {
+  df_all %>%
+    mutate(
+      lo = estimate,
+      stars = case_when(
+        p.value < 0.01 ~ "**",
+        p.value < 0.05 ~ "*",
+        TRUE ~ ""
+      ),
+      value = paste0(round(lo, 2), stars)
+    ) %>%
+    select(model_name, term, hyp, value)
+}
+
+all_h <- bind_rows(
+  Hmain %>% mutate(hyp = "Hmain"),
+  Hfull %>% mutate(hyp = "Hfull")
+)
+
+all_h_fmt <- all_h %>%
+  filter(!str_detect(term, "strata")) %>%
+  format_or()
+
+table_final <- all_h_fmt %>%
+  select(hyp, term, model_name, haystack, value) %>%
+  pivot_wider(
+    names_from = model_name,
+    values_from = value
+  ) %>%
+  arrange(hyp, term)
+```
+
+## Likelihood test between model properties (aggregated)
+
+```{r}
+# model_meta <- tibble(
+#   model_name = c(
+#     "llama",
+#     "qwen_7B",
+#     "qwen_14B",
+#     "mistral_7B_instruct",
+#     "mistral_7B"
+#   ),
+# 
+#   family = c(
+#     "Llama",
+#     "Qwen",
+#     "Qwen",
+#     "Mistral",
+#     "Mistral"
+#   ),
+# 
+#   scale = c(
+#     1,
+#     7,
+#     14,
+#     7,
+#     7
+#   ),
+# 
+#   training_regime = c(
+#     "Instruction",
+#     "Instruction",
+#     "Instruction",
+#     "Instruction",
+#     "Base"
+#   )
+# )
+# 
+# df_all <- df_all %>%
+#   left_join(model_meta, by = "model_name")
+# 
+# df_all <- df_all %>%
+#   mutate(
+#     family = factor(family),
+#     training_regime = factor(training_regime),
+#     scale = as.numeric(scale)
+#   )
+
+# ----------------------------------
+# 1. Scale effects (Qwen models)
+# ----------------------------------
+
+df_scale <- df_all %>%
+  filter(model_name %in% c("qwen_7B", "qwen_14B")) %>%
+  mutate(model_scale = factor(scale))
+
+H_scale <- clogit(
+  choice ~
+    repetition + position + needle_identity +
+    needle_identity * model_scale +
+    position * model_scale +
+    repetition * model_scale +
+    strata(haystack_id),
+  data = df_scale
+)
+
+H_scale_null <- update(
+  H_scale,
+  . ~ .
+    - needle_identity:model_scale
+    - position:model_scale
+    - repetition:model_scale
+)
+
+scale_test <- anova(H_scale_null, H_scale, test = "Chisq") %>%
+  as.data.frame() %>%
+  mutate(test = "Qwen 7B vs 14B (Scale)")
+
+
+# --------------------------------------
+# 2. Training effect (Mistral models)
+# --------------------------------------
+
+df_train <- df_all %>%
+  filter(model_name %in% c("mistral_7B", "mistral_7B_instruct")) %>%
+  mutate(training_regime = factor(training_regime))
+
+H_train <- clogit(
+  choice ~
+    repetition + position + needle_identity +
+    needle_identity * training_regime +
+    position * training_regime +
+    repetition * training_regime +
+    strata(haystack_id),
+  data = df_train
+)
+
+H_train_null <- update(
+  H_train,
+  . ~ .
+    - needle_identity:training_regime
+    - position:training_regime
+    - repetition:training_regime
+)
+
+train_test <- anova(H_train_null, H_train, test = "Chisq") %>%
+  as.data.frame() %>%
+  mutate(test = "Mistral base vs instruct (Training)")
+
+
+# -------------------------------------
+# 3. Family effect (Qwen and Mistral)
+# -------------------------------------
+
+df_family <- df_all %>%
+  filter(model_name %in% c("qwen_7B", "mistral_7B_instruct")) %>%
+  mutate(family = factor(family))
+
+H_family <- clogit(
+  choice ~
+    repetition + position + needle_identity +
+    needle_identity * family +
+    position * family +
+    repetition * family +
+    strata(haystack_id),
+  data = df_family
+)
+
+H_family_null <- update(
+  H_family,
+  . ~ .
+    - needle_identity:family
+    - position:family
+    - repetition:family
+)
+
+family_test <- anova(H_family_null, H_family, test = "Chisq") %>%
+  as.data.frame() %>%
+  mutate(test = "Qwen 7B vs Mistral 7B-instruct (Family)")
+
+# -----------------------------
+# Final combined table
+# -----------------------------
+
+results_table <- bind_rows(
+  scale_test,
+  train_test,
+  family_test,
+) %>%
+  transmute(
+    Comparison = test,
+    Chisq = `Chisq`,
+    df = `Df`,
+    p_value = `Pr(>|Chi|)`
+  )
+
+# -----------------------------
+# AIC / BIC
+# -----------------------------
+
+model_tests <- list(
+  scale = list(full = H_scale, null = H_scale_null),
+  family = list(full = H_family, null = H_family_null),
+  training = list(full = H_train, null = H_train_null)
+)
+
+model_criteria <- imap_dfr(model_tests, function(m, name) {
+  
+  tibble(
+    Comparison = name,
+    
+    AIC_full = AIC(m$full),
+    AIC_null = AIC(m$null),
+    
+    BIC_full = BIC(m$full),
+    BIC_null = BIC(m$null),
+  )
+})
+
+model_criteria
+results_table
+```
+
+## Likelihood test per haystack - model property comparisons
+
+```{r}
+
+# model_meta <- tibble(
+#   model_name = c(
+#     "llama",
+#     "qwen_7B",
+#     "qwen_14B",
+#     "mistral_7B_instruct",
+#     "mistral_7B"
+#   ),
+# 
+#   family = c(
+#     "Llama",
+#     "Qwen",
+#     "Qwen",
+#     "Mistral",
+#     "Mistral"
+#   ),
+# 
+#   scale = c(
+#     1,
+#     7,
+#     14,
+#     7,
+#     7
+#   ),
+# 
+#   training_regime = c(
+#     "Instruction",
+#     "Instruction",
+#     "Instruction",
+#     "Instruction",
+#     "Base"
+#   )
+# )
+# 
+# df_all <- df_all %>%
+#   left_join(model_meta, by = "model_name")
+# 
+# df_all <- df_all %>%
+#   mutate(
+#     family = factor(family),
+#     training_regime = factor(training_regime),
+#     scale = as.numeric(scale)
+#   )
+
+# ==========================================================================
+# Running separate clogit models for each haystack (h1-h5) and both prompts
+# ==========================================================================
+
+haystack_levels <- c("h1", "h2", "h3", "h4", "h5")
+
+all_results <- map_dfr(haystack_levels, function(hs) {
+
+  # ---------------------------------
+  # subset current haystack
+  # ---------------------------------
+
+  df_hs <- df_all %>%
+    filter(haystack == hs)
+    #  filter(experimental_condition == "lf/mc")
+
+  # =================================
+  # 1. SCALE
+  # =================================
+
+  df_scale <- df_hs %>%
+    filter(model_name %in% c("qwen_7B", "qwen_14B")) %>%
+    mutate(model_scale = factor(scale))
+
+  H_scale <- clogit(
+    choice ~
+      repetition + position + needle_identity +
+      needle_identity * model_scale +
+      position * model_scale +
+      repetition * model_scale +
+      strata(haystack_id),
+    data = df_scale
+  )
+
+  H_scale_null <- update(
+    H_scale,
+    . ~ .
+      - needle_identity:model_scale
+      - position:model_scale
+      - repetition:model_scale
+  )
+
+  scale_test <- anova(H_scale_null, H_scale, test = "Chisq") %>%
+    as.data.frame() %>%
+    mutate(
+      haystack = hs,
+      Comparison = "Qwen 7B vs 14B (Scale)"
+    )
+
+
+  # =================================
+  # 2. TRAINING
+  # =================================
+
+  df_train <- df_hs %>%
+    filter(model_name %in% c("mistral_7B", "mistral_7B_instruct")) %>%
+    mutate(training_regime = factor(training_regime))
+
+  H_train <- clogit(
+    choice ~
+      repetition + position + needle_identity +
+      needle_identity * training_regime +
+      position * training_regime +
+      repetition * training_regime +
+      strata(haystack_id),
+    data = df_train
+  )
+
+  H_train_null <- update(
+    H_train,
+    . ~ .
+      - needle_identity:training_regime
+      - position:training_regime
+      - repetition:training_regime
+  )
+
+  train_test <- anova(H_train_null, H_train, test = "Chisq") %>%
+    as.data.frame() %>%
+    mutate(
+      haystack = hs,
+      Comparison = "Mistral base vs instruct (Training)"
+    )
+
+
+  # =================================
+  # 3. FAMILY
+  # =================================
+
+  df_family <- df_hs %>%
+    filter(model_name %in% c("qwen_7B", "mistral_7B_instruct")) %>%
+    mutate(family = factor(family))
+
+  H_family <- clogit(
+    choice ~
+      repetition + position + needle_identity +
+      needle_identity * family +
+      position * family +
+      repetition * family +
+      strata(haystack_id),
+    data = df_family
+  )
+
+  H_family_null <- update(
+    H_family,
+    . ~ .
+      - needle_identity:family
+      - position:family
+      - repetition:family
+  )
+
+  family_test <- anova(H_family_null, H_family, test = "Chisq") %>%
+    as.data.frame() %>%
+    mutate(
+      haystack = hs,
+      Comparison = "Qwen 7B vs Mistral 7B-instruct (Family)"
+    )
+
+
+  # =================================
+  # combine results
+  # =================================
+
+  bind_rows(
+    scale_test,
+    train_test,
+    family_test
+  )
+
+})
+
+
+# =================================
+# final clean table
+# =================================
+
+results_table <- all_results %>%
+  transmute(
+    haystack,
+    Comparison,
+    Chisq = `Chisq`,
+    df = `Df`,
+    p_value = `Pr(>|Chi|)`
+  )
+
+results_table
+```
+
+## Plotting generation across haystacks
+
+```{r}
+# -----------------------------
+# Collapse to choice-set level
+# -----------------------------
+
+df_choice <- df_all %>%
+  filter(experimental_condition == "lf") %>%
+  filter(!str_detect(model_name, regex("gpt-oss", ignore_case = TRUE))) %>%
+  group_by(
+    model_name,
+    experimental_condition,
+    haystack_id,
+    haystack,
+    grounding,
+    haystack_language,
+    needle_language,
+    question_language
+  ) %>%
+  summarise(
+    inconclusive = any(as.character(label) == "2"),
+    .groups = "drop"
+  )
+
+# ---------------------
+# Language conditions 
+# ---------------------
+
+df_all_en <- df_choice %>%
+  filter(
+    haystack_language == "en",
+    needle_language == "en",
+    question_language == "en"
+  ) %>%
+  mutate(language_condition = "all_en")
+
+df_all_de <- df_choice %>%
+  filter(
+    haystack_language == "de",
+    needle_language == "de",
+    question_language == "de"
+  ) %>%
+  mutate(language_condition = "all_de")
+
+df_all <- df_choice %>%
+  mutate(language_condition = "all")
+
+# -------------------------------
+# Combining language conditions 
+# -------------------------------
+
+df_hay_rate <- bind_rows(
+  df_all_en,
+  df_all_de,
+  df_all
+) %>%
+  
+  group_by(
+    model_name,
+    haystack,
+    grounding,
+    language_condition
+  ) %>%
+  
+  summarise(
+    inconclusive_rate = mean(inconclusive),
+    n = n(),
+    .groups = "drop"
+  ) %>%
+  
+  mutate(
+    pct_label = paste0(round(inconclusive_rate * 100, 1), "%")
+  )
+
+# ==============
+# Plotting
+# ==============
+
+haystack_trend_plot <- ggplot(df_hay_rate, aes(
+  x = haystack,
+  y = inconclusive_rate,
+  group = interaction(model_name, grounding),
+  color = model_name,
+  linetype = grounding
+)) +
+
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+
+  geom_text(
+    aes(label = pct_label),
+    vjust = -0.6,
+    size = 3,
+    show.legend = FALSE
+  ) +
+
+  facet_wrap(~ language_condition) +
+
+  scale_linetype_manual(
+    values = c(
+      "acc" = "solid",
+      "nacc" = "dashed"
+    )
+  ) +
+
+  scale_y_continuous(
+    labels = scales::percent_format()
+  ) +
+
+  labs(
+    x = "Haystack",
+    y = "Inconclusive rate",
+    color = "Model",
+    linetype = "Grounding",
+  ) +
+
+  theme_minimal(base_size = 20)
+
+print(haystack_trend_plot)
+
+ggsave(
+  "haystack_trend_expanded.png",
+  haystack_trend_plot,
+  width = 12,
+  height = 6,
+  dpi = 300
+)
+```
+
+\
+
+## AIC/BIC Analysis for hypotheses
+
+```{r}
+model_comparison <- df_all %>%
+  #  filter(experimental_condition == "lf/mc")
+  group_by(model_name) %>%
+  summarise(
+    Hmain = list(clogit(
+      choice ~ 
+        needle_identity + repetition + position +
+        strata(haystack_id),
+      data = cur_data()
+    )),
+    Hfull = list(clogit(
+      choice ~
+        repetition * position +
+        repetition * needle_identity +
+  
+        needle_identity * haystack_language +
+        needle_identity * needle_language +
+        needle_identity * question_language +
+        needle_identity * lang_align * victim +
+        needle_identity * grounding * lang_align +
+  
+      strata(haystack_id),
+      data = cur_data()
+    )),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    AIC_Hmain = purrr::map_dbl(Hmain, AIC),
+    BIC_Hmain = purrr::map_dbl(Hmain, BIC),
+    AIC_Hfull  = purrr::map_dbl(Hfull, AIC),
+    BIC_Hfull  = purrr::map_dbl(Hfull, BIC)
+  ) %>%
+    mutate(
+    across(c(AIC_Hmain, AIC_Hfull, BIC_Hmain, BIC_Hfull), ~ round(.x, 0))
+  ) %>%
+  select(model_name, AIC_Hmain, AIC_Hfull, BIC_Hmain, BIC_Hfull)
+
+model_comparison
+```
+
+## Create latex table from clogit output
+
+```{r}
+
+################################################################################
+# 1. VARIABLE LABELS + INTERACTION CLEANING
+################################################################################
+
+var_labels <- c(
+  "repetition2" = "2x",
+  "repetition5" = "5x",
+  "position2"   = "2nd",
+  "needle_identitynecessary" = "nec"
+)
+
+interaction_labels <- function(x) {
+  x %>%
+    str_replace_all("repetition2", "2x") %>%
+    str_replace_all("repetition5", "5x") %>%
+    str_replace_all("position2", "2nd") %>%
+    str_replace_all("needle_identitynecessary", "nec") %>%
+    str_replace_all("lang_alignen", "all_en") %>%
+    str_replace_all("lang_alignde", "all_de") %>%
+    str_replace_all("groundingacc", "acc") %>%
+    str_replace_all("haystack_languagede", "hl (de)") %>%
+    str_replace_all("needle_languagede", "nl (de)") %>%
+    str_replace_all("question_languagede", "ql (de)") %>%
+    str_replace_all("victimsax", "sax") %>%
+    str_replace_all(":", " $\\\\times$ ")
+}
+
+################################################################################
+# 2. HYPOTHESIS → TERM MAPPING (SOURCE OF TRUTH)
+################################################################################
+
+hyp_map <- list(
+
+  H1 = c("repetition2", "repetition5"),
+  H2 = c("position2"),
+  H3 = c("needle_identitynecessary"),
+
+  H4  = c("repetition2:position2", "repetition5:position2"),
+  H5  = c("repetition2:needle_identitynecessary",
+          "repetition5:needle_identitynecessary"),
+
+  H6  = c("needle_identitynecessary:haystack_languagede"),
+  H7  = c("needle_identitynecessary:needle_languagede"),
+  H8  = c("needle_identitynecessary:question_languagede"),
+
+  H9  = c("needle_identitynecessary:lang_alignen",
+          "needle_identitynecessary:lang_alignde"),
+
+  H10 = c("needle_identitynecessary:victimsax"),
+  H11 = c("needle_identitynecessary:groundingacc"),
+
+  H12 = c("needle_identitynecessary:lang_alignen:victimsax",
+          "needle_identitynecessary:lang_alignde:victimsax"),
+
+  H13 = c("needle_identitynecessary:lang_alignen:groundingacc",
+          "needle_identitynecessary:lang_alignde:groundingacc")
+)
+
+term_to_hyp <- stack(hyp_map)
+names(term_to_hyp) <- c("term", "hyp")
+
+################################################################################
+# 3. BUILD CLEAN TABLE + MAP HYPOTHESES
+################################################################################
+
+table_clean <- table_lf_final %>%
+  mutate(
+    term = as.character(term),
+    hyp  = term_to_hyp$hyp[match(term, term_to_hyp$term)]
+  ) %>%
+  filter(!is.na(hyp))
+
+################################################################################
+# 4. APPLY LABELS
+################################################################################
+
+table_clean <- table_clean %>%
+  mutate(
+    term = recode(term, !!!var_labels),
+    term = interaction_labels(term)
+  )
+
+################################################################################
+# 5. DROP ROWS WITH ANY NA (STRICT RULE)
+################################################################################
+
+table_clean <- table_clean %>%
+  filter(if_all(everything(), ~ !is.na(.)))
+
+################################################################################
+# 6. FORCE ORDERING (CORRECT FOR HMAIN / HFULL SETUP)
+################################################################################
+
+hyp_order <- paste0("H", 1:13)
+
+table_clean <- table_clean %>%
+  mutate(
+    hyp = factor(hyp, levels = hyp_order)
+  ) %>%
+  arrange(hyp, term)
+
+################################################################################
+# 7. SELECT MODEL COLUMNS
+################################################################################
+
+model_cols <- c(
+  "haystack",
+  "llama",
+  "mistral_7B",
+  "mistral_7B_instruct",
+  "qwen_7B",
+  "qwen_14B"
+)
+
+
+table_final <- table_clean %>%
+  select(hyp, term, all_of(model_cols))
+
+################################################################################
+# 8. LATEX TABLE
+################################################################################
+
+latex_table <- table_final %>%
+  kable(
+    format = "latex",
+    booktabs = TRUE,
+    escape = FALSE,
+    align = c("l", "l", rep("c", length(model_cols))),
+    col.names = c(
+      "Hyp.",
+      "Variable",
+      gsub("_", "\\\\_", model_cols)
+    )
+  ) %>%
+  kable_styling(latex_options = c("hold_position"))
+
+cat(latex_table)
+```
