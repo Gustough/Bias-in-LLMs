@@ -22,7 +22,7 @@ class haystack:
 
 def haystacks_builder():
     size = 1000
-    data_path = "Data"
+    data_path = "speeches" # collected with webscraper.py
     output_path = "base_haystacks"
     links_path = "links.txt"
     used_files = []
@@ -56,6 +56,7 @@ def haystacks_builder():
                             break
                 else:
                     continue
+
 
 variables = {
     "haystack_language": ["en", "de"],
