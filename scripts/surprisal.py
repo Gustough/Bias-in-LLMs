@@ -3,88 +3,44 @@ import torch
 import torch.nn.functional as F
 from collections import defaultdict
 
+
 def compute_surprisal(
     model,
     tokenizer,
     device,
     prefix,
-    candidate
+    candidates
 ):
-    full_text = prefix + candidate
-
-    full_inputs = tokenizer(full_text, return_tensors="pt")["input_ids"].to(device)
     prefix_inputs = tokenizer(prefix, return_tensors="pt")["input_ids"].to(device)
 
-    prefix_len = prefix_inputs.shape[1]
-    candidate_len = full_inputs.shape[1] - prefix_len
+    candidate_ids = {
+        name: tokenizer(tok, add_special_tokens=False)["input_ids"][0]
+        for name, tok in candidates.items()
+    }
 
     with torch.no_grad():
         outputs = model(
-            full_inputs,
-            output_hidden_states=True,
+            prefix_inputs,
             return_dict=True
         )
 
-        hidden_states = outputs.hidden_states[1:]
-        num_layers = len(hidden_states)
+        logits = outputs.logits[:, -1, :]
 
-        layer_indices = [
-            int(0.1 * num_layers),
-            int(0.5 * num_layers),
-            int(0.9 * num_layers),
-            num_layers - 1
-        ]
+        log_probs = F.log_softmax(logits, dim=-1)
+        probs = F.softmax(logits, dim=-1)
 
-        layer_log_probs = {}
-
-        lm_head = model.get_output_embeddings()
-
-        for i, layer_idx in enumerate(layer_indices):
-            layer_hidden = hidden_states[layer_idx]
-
-            logits = lm_head(layer_hidden)
-            log_probs = F.log_softmax(logits, dim=-1)
-
-            shifted_tokens = full_inputs[:, 1:]
-
-            token_log_probs = log_probs[:, :-1].gather(
-                2, shifted_tokens.unsqueeze(-1)
-            ).squeeze(-1)
-
-            candidate_log_probs = token_log_probs[:, -candidate_len:]
-            total_log_prob = candidate_log_probs.sum().item()
-            length = candidate_log_probs.shape[1]
-            avg_log_prob = total_log_prob / length
-
-            if i == 0:
-                key = "early"
-            elif i == 1:
-                key = "middle"
-            elif i == 2:
-                key = "late"
-            else:
-                key = "last"
-
-            layer_log_probs[key] = avg_log_prob
-
-        return layer_log_probs
-
-def normalize_candidate_probs(log_probabilities):
-    normalized = {}
-
-    layers = log_probabilities[0].keys()
-
-    for layer in layers:
-        layer_scores = torch.tensor([
-            log_probabilities[0][layer],
-            log_probabilities[1][layer]
-        ])
-
-        probs = torch.softmax(layer_scores, dim=0)
-
-        normalized[layer] = {
-            "candidate_A": probs[0].item(),
-            "candidate_B": probs[1].item()
+        # Candidate surprisal
+        candidate_log_probs = {
+            name: log_probs[0, cid].item()
+            for name, cid in candidate_ids.items()
         }
 
-    return normalized
+        # Top k for most likely generated token
+        topk = torch.topk(probs, k=10)
+
+        topk_tokens = tokenizer.convert_ids_to_tokens(topk.indices[0].tolist())
+        topk_probs = topk.values[0].tolist()
+
+        topk_out = list(zip(topk_tokens, topk_probs))
+
+    return candidate_log_probs, topk_out
