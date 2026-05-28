@@ -3,8 +3,7 @@
 The experiments were conducted using English and German text, to ensure model support, a high degree of control over manipulated text and an informed interpretation of the outputs.
 
 ## Data
-The original texts used in the experiments are obtained from the European Commission’s Press Corner (Commission), available under the Creative Com-
-mons Attribution 4.0 International (CC BY 4.0) licence.
+The original texts used in the experiments are obtained from the European Commission’s Press Corner (Commission), available under the Creative Commons Attribution 4.0 International (CC BY 4.0) licence.
 
 The `scripts/webscraper.py` file can be used to collect a specified number of texts from the website in the selected languages. To add more languages, uncomment selection from the language_code list in the script. `links.txt` contains the hyperlinks to the speeches used in this experiment to create the five baseline haystacks in both English and German (base_haystacks) using:
 
