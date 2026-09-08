@@ -22,4 +22,4 @@ The full set of haystack configurations used in the experiments were created by 
 The `slurm/find_a_job.sh` script was used to run `scripts/prompt_model.py` on Alvis. The former collects the models' generated answers and calls `scripts/surprisal.py` to calculate needle-candidate log probabilities. The output of this is `llm_outputs.jsonl` , which `scripts/eval.py` uses to create the `clogit.parquet` file. The R-notebook `analysis_R.Rmd` takes that file and summarizes the results into tables and plots for the paper.
 
 ## Paper
-The corresponding paper will be uploaded to DiVA. (link to follow)
+https://urn.kb.se/resolve?urn=urn:nbn:se:su:diva-256608
